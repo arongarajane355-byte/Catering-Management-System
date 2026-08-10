@@ -3,7 +3,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/common/Sidebar';
 import {
-  Calendar, Plus, UserCheck, Eye, Clock, MapPin, Users, DollarSign,
+  Calendar, Plus, UserCheck, Eye, EyeOff, Clock, MapPin, Users, DollarSign,
   X, CheckCircle, AlertCircle, Search, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -29,14 +29,18 @@ const CustomerDashboard = () => {
 
   // Profile Form State
   const [profileForm, setProfileForm] = useState({
-    firstname: user?.firstname || '',
+    customer_no: user?.customer_no || '',
     lastname: user?.lastname || '',
+    middlename: user?.middlename || '',
+    firstname: user?.firstname || '',
     gender: user?.gender || 'Male',
     age: user?.age || 25,
     contact_number: user?.contact_number || '',
+    email: user?.email || '',
     password: ''
   });
-  const [profileMsg, setProfileMsg] = useState('');
+  const [showProfilePassword, setShowProfilePassword] = useState(false);
+  const [profileMsg, setProfileMsg] = useState({ text: '', isError: false });
 
   // Search / Filter / Pagination — My Bookings
   const [bkSearch, setBkSearch] = useState('');
@@ -48,6 +52,22 @@ const CustomerDashboard = () => {
     fetchDashboardData();
     fetchServicesList();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        customer_no: user.customer_no || `CUST-${new Date(user.created_at || Date.now()).getFullYear()}-${String(user.user_id).padStart(4, '0')}`,
+        lastname: user.lastname || '',
+        middlename: user.middlename || '',
+        firstname: user.firstname || '',
+        gender: user.gender || 'Male',
+        age: user.age || 25,
+        contact_number: user.contact_number || '',
+        email: user.email || '',
+        password: ''
+      });
+    }
+  }, [user]);
 
   const fetchDashboardData = async () => {
     try {
@@ -127,12 +147,33 @@ const CustomerDashboard = () => {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    setProfileMsg({ text: '', isError: false });
+
+    const fn = profileForm.firstname.trim();
+    const ln = profileForm.lastname.trim();
+    const contact = profileForm.contact_number.trim();
+    const ageVal = parseInt(profileForm.age, 10);
+
+    if (!fn || !ln || !contact || isNaN(ageVal)) {
+      setProfileMsg({ text: 'Please fill in all required fields.', isError: true });
+      return;
+    }
+
     try {
-      await api.put('/customer/profile', profileForm);
-      setProfileMsg('Profile updated successfully!');
-      fetchCurrentUser();
+      await api.put('/customer/profile', {
+        firstname: fn,
+        middlename: profileForm.middlename ? profileForm.middlename.trim() : null,
+        lastname: ln,
+        gender: profileForm.gender,
+        age: ageVal,
+        contact_number: contact,
+        password: profileForm.password
+      });
+      setProfileMsg({ text: 'Personal information updated successfully!', isError: false });
+      setProfileForm(prev => ({ ...prev, password: '' }));
+      if (fetchCurrentUser) fetchCurrentUser();
     } catch (err) {
-      setProfileMsg('Failed to update profile.');
+      setProfileMsg({ text: err.response?.data?.message || 'Failed to update personal information.', isError: true });
     }
   };
 
@@ -382,31 +423,57 @@ const CustomerDashboard = () => {
 
           {/* Tab: Profile */}
           {activeTab === 'profile' && (
-            <div className="card p-6" style={{ maxWidth: '600px' }}>
+            <div className="card p-6" style={{ maxWidth: '650px' }}>
               <div className="section-header">
-                <h3 className="section-title">Update Personal Information</h3>
+                <div>
+                  <h3 className="section-title">Update Personal Information</h3>
+                  <p className="section-subtitle">Manage your personal profile details and security credentials</p>
+                </div>
               </div>
-              {profileMsg && (
-                <div className="alert alert-success">
-                  <CheckCircle size={16} />
-                  <span>{profileMsg}</span>
+
+              {profileMsg.text && (
+                <div className={`alert ${profileMsg.isError ? 'alert-error' : 'alert-success'}`}>
+                  {profileMsg.isError ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
+                  <span>{profileMsg.text}</span>
                 </div>
               )}
-              <form onSubmit={handleUpdateProfile}>
-                <div className="grid-2">
+
+              <form onSubmit={handleUpdateProfile} id="customer-profile-form">
+                {/* Customer No. — auto-assigned & visible read-only */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="profile-cust-no">
+                    Customer No.{' '}
+                    <span style={{
+                      fontSize: '0.72rem', color: 'var(--brand)',
+                      background: 'var(--brand-dim)', padding: '1px 6px',
+                      borderRadius: 4, fontWeight: 600
+                    }}>
+                      Auto-assigned
+                    </span>
+                  </label>
+                  <input
+                    id="profile-cust-no"
+                    type="text"
+                    className="form-input"
+                    value={profileForm.customer_no || `CUST-${new Date().getFullYear()}-0000`}
+                    readOnly
+                    style={{
+                      fontWeight: 700,
+                      color: 'var(--brand)',
+                      letterSpacing: '0.05em',
+                      background: 'var(--bg-elevated)',
+                      cursor: 'not-allowed'
+                    }}
+                  />
+                </div>
+
+                <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
                   <div className="form-group">
-                    <label className="form-label">First Name</label>
+                    <label className="form-label" htmlFor="profile-lastname">
+                      Last Name <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                    </label>
                     <input
-                      type="text"
-                      className="form-input"
-                      value={profileForm.firstname}
-                      onChange={(e) => setProfileForm({ ...profileForm, firstname: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Last Name</label>
-                    <input
+                      id="profile-lastname"
                       type="text"
                       className="form-input"
                       value={profileForm.lastname}
@@ -414,15 +481,47 @@ const CustomerDashboard = () => {
                       required
                     />
                   </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="profile-firstname">
+                      First Name <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                    </label>
+                    <input
+                      id="profile-firstname"
+                      type="text"
+                      className="form-input"
+                      value={profileForm.firstname}
+                      onChange={(e) => setProfileForm({ ...profileForm, firstname: e.target.value })}
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="grid-2">
+                {/* Middle Name */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="profile-middlename">
+                    Middle Name <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Optional)</span>
+                  </label>
+                  <input
+                    id="profile-middlename"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Santos"
+                    value={profileForm.middlename}
+                    onChange={(e) => setProfileForm({ ...profileForm, middlename: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
                   <div className="form-group">
-                    <label className="form-label">Gender</label>
+                    <label className="form-label" htmlFor="profile-gender">
+                      Gender <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                    </label>
                     <select
+                      id="profile-gender"
                       className="form-select"
                       value={profileForm.gender}
                       onChange={(e) => setProfileForm({ ...profileForm, gender: e.target.value })}
+                      required
                     >
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
@@ -430,20 +529,28 @@ const CustomerDashboard = () => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Age</label>
+                    <label className="form-label" htmlFor="profile-age">
+                      Age <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                    </label>
                     <input
+                      id="profile-age"
                       type="number"
                       className="form-input"
                       value={profileForm.age}
                       onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })}
+                      min="1"
+                      max="120"
                       required
                     />
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Contact Number</label>
+                  <label className="form-label" htmlFor="profile-contact">
+                    Contact Number <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                  </label>
                   <input
+                    id="profile-contact"
                     type="text"
                     className="form-input"
                     value={profileForm.contact_number}
@@ -452,18 +559,52 @@ const CustomerDashboard = () => {
                   />
                 </div>
 
+                {/* Email Address — Read-only */}
                 <div className="form-group">
-                  <label className="form-label">New Password (leave empty to keep unchanged)</label>
+                  <label className="form-label" htmlFor="profile-email">Email Address</label>
                   <input
-                    type="password"
+                    id="profile-email"
+                    type="email"
                     className="form-input"
-                    placeholder="••••••••"
-                    value={profileForm.password}
-                    onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                    value={profileForm.email}
+                    readOnly
+                    style={{ opacity: 0.7, cursor: 'not-allowed', background: 'var(--bg-elevated)' }}
                   />
                 </div>
 
-                <button type="submit" className="btn btn-primary" style={{ marginTop: '0.5rem' }}>
+                {/* Password with Eye icon toggle */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="profile-password">
+                    New Password <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Leave empty to keep current password)</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="profile-password"
+                      type={showProfilePassword ? 'text' : 'password'}
+                      className="form-input"
+                      placeholder="••••••••"
+                      value={profileForm.password}
+                      onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                      style={{ paddingRight: '2.75rem' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowProfilePassword(v => !v)}
+                      style={{
+                        position: 'absolute', right: '0.75rem', top: '50%',
+                        transform: 'translateY(-50%)', background: 'none',
+                        border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
+                        display: 'flex', alignItems: 'center', padding: 0
+                      }}
+                      aria-label={showProfilePassword ? 'Hide password' : 'Show password'}
+                      title={showProfilePassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showProfilePassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ marginTop: '0.75rem' }}>
                   Save Profile Changes
                 </button>
               </form>

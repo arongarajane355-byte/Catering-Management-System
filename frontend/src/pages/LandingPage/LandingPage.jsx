@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import {
   Utensils, Calendar, Truck, Wine, Package, ChevronRight,
-  Sparkles, UtensilsCrossed, ArrowRight, Star
+  Sparkles, UtensilsCrossed, ArrowRight, Star, UserPlus,
+  X, CheckCircle2, AlertCircle, Eye, EyeOff, Copy, Check
 } from 'lucide-react';
-import cmsLogo from '../../assets/cms_logo.png';
 
 const getCategoryIcon = (name) => {
   if (name.includes('Catering')) return <Utensils size={22} />;
@@ -22,9 +22,379 @@ const categoryAccents = [
   { bg: 'var(--amber-dim)', color: 'var(--amber)' },
 ];
 
+// ---------- REGISTRATION MODAL ----------
+const RegistrationModal = ({ onClose }) => {
+  const [customerNo] = useState(() => `CUST-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [form, setForm] = useState({
+    lastname: '',
+    middlename: '',
+    firstname: '',
+    gender: 'Male',
+    age: '',
+    contact_number: '',
+    email: '',
+  });
+  const [emailManual, setEmailManual] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [successData, setSuccessData] = useState(null); // { customer_no, email }
+  const [error, setError] = useState('');
+
+  // Auto-generate email from firstname + lastname
+  useEffect(() => {
+    if (!emailManual) {
+      const fn = form.firstname.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const ln = form.lastname.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (fn || ln) {
+        const generated = fn && ln ? `${fn}.${ln}@cms.com` : fn ? `${fn}@cms.com` : `${ln}@cms.com`;
+        setForm(prev => ({ ...prev, email: generated }));
+      } else {
+        setForm(prev => ({ ...prev, email: '' }));
+      }
+    }
+  }, [form.firstname, form.lastname, emailManual]);
+
+  const handleChange = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    setError('');
+  };
+
+  const handleEmailChange = (value) => {
+    setEmailManual(true);
+    setForm(prev => ({ ...prev, email: value }));
+    setError('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    const fn = form.firstname.trim();
+    const ln = form.lastname.trim();
+    const contact = form.contact_number.trim();
+    const email = form.email.trim().toLowerCase();
+    const ageVal = parseInt(form.age, 10);
+
+    if (!fn || !ln || !contact || !email || isNaN(ageVal)) {
+      setError('Please fill in all required fields (First Name, Last Name, Gender, Age, Contact No., and Email).');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await api.post('/auth/register', {
+        customer_no: customerNo,
+        firstname: fn,
+        middlename: form.middlename.trim() || null,
+        lastname: ln,
+        gender: form.gender,
+        age: ageVal,
+        contact_number: contact,
+        email: email,
+      });
+      setSuccessData({
+        customer_no: res.data.customer_no || customerNo,
+        email: email
+      });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 1000 }}>
+      <div
+        className="modal-box"
+        style={{
+          maxWidth: 600,
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          borderRadius: 'var(--r-xl)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        {/* Header */}
+        <div className="modal-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 'var(--r-lg)',
+              background: 'var(--brand-dim)', color: 'var(--brand)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <UserPlus size={18} />
+            </div>
+            <div>
+              <h3 className="modal-title" style={{ margin: 0 }}>Customer Registration</h3>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+                Fill in your details — your account will be activated by admin.
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="btn btn-ghost btn-icon" id="reg-modal-close">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="modal-body" style={{ paddingTop: '1.5rem' }}>
+          {/* Success State */}
+          {successData ? (
+            <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+              <div style={{
+                width: 68, height: 68, borderRadius: '50%',
+                background: 'var(--success-dim, rgba(34,197,94,0.12))',
+                color: 'var(--success, #22c55e)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 1.25rem',
+                border: '2px solid var(--success, #22c55e)'
+              }}>
+                <CheckCircle2 size={32} />
+              </div>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.25rem', marginBottom: '0.75rem' }}>
+                Registration Submitted!
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6, maxWidth: 400, margin: '0 auto 1.5rem' }}>
+                Your registration is pending admin approval. Once verified, our staff will provide you with your login credentials.
+              </p>
+              <div style={{
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                borderRadius: 'var(--r-lg)', padding: '1rem', marginBottom: '1.5rem',
+                textAlign: 'left', fontSize: '0.85rem'
+              }}>
+                <div style={{ marginBottom: '0.4rem' }}>
+                  <strong style={{ color: 'var(--text-secondary)' }}>Customer No.:</strong>{' '}
+                  <span style={{ color: 'var(--brand)', fontWeight: 700 }}>{successData.customer_no}</span>
+                </div>
+                <div style={{ marginBottom: '0.4rem' }}>
+                  <strong style={{ color: 'var(--text-secondary)' }}>Registered Email:</strong>{' '}
+                  <span style={{ color: 'var(--brand)' }}>{successData.email}</span>
+                </div>
+                <div style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                  📞 Please wait for admin confirmation.
+                </div>
+              </div>
+              <button onClick={onClose} className="btn btn-primary">
+                Close <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} id="customer-register-form">
+              {error && (
+                <div className="alert alert-error" style={{ marginBottom: '1.25rem' }}>
+                  <AlertCircle size={15} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Customer No. — auto-generated & visible read-only */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-customer-no">
+                  Customer No.{' '}
+                  <span style={{
+                    fontSize: '0.72rem', color: 'var(--brand)',
+                    background: 'var(--brand-dim)', padding: '1px 6px',
+                    borderRadius: 4, fontWeight: 600
+                  }}>
+                    Auto-generated
+                  </span>
+                </label>
+                <input
+                  id="reg-customer-no"
+                  type="text"
+                  className="form-input"
+                  value={customerNo}
+                  readOnly
+                  style={{
+                    fontWeight: 700,
+                    color: 'var(--brand)',
+                    letterSpacing: '0.05em',
+                    background: 'var(--bg-elevated)',
+                    cursor: 'not-allowed'
+                  }}
+                />
+              </div>
+
+              <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                {/* Lastname */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="reg-lastname">
+                    Last Name <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                  </label>
+                  <input
+                    id="reg-lastname"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Dela Cruz"
+                    value={form.lastname}
+                    onChange={e => handleChange('lastname', e.target.value)}
+                    required
+                    autoComplete="family-name"
+                  />
+                </div>
+
+                {/* Firstname */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="reg-firstname">
+                    First Name <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                  </label>
+                  <input
+                    id="reg-firstname"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Maria"
+                    value={form.firstname}
+                    onChange={e => handleChange('firstname', e.target.value)}
+                    required
+                    autoComplete="given-name"
+                  />
+                </div>
+              </div>
+
+              {/* Middlename */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-middlename">
+                  Middle Name <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Optional)</span>
+                </label>
+                <input
+                  id="reg-middlename"
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Santos"
+                  value={form.middlename}
+                  onChange={e => handleChange('middlename', e.target.value)}
+                  autoComplete="additional-name"
+                />
+              </div>
+
+              <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                {/* Gender */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="reg-gender">
+                    Gender <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                  </label>
+                  <select
+                    id="reg-gender"
+                    className="form-select"
+                    value={form.gender}
+                    onChange={e => handleChange('gender', e.target.value)}
+                    required
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Age */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="reg-age">
+                    Age <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                  </label>
+                  <input
+                    id="reg-age"
+                    type="number"
+                    className="form-input"
+                    placeholder="e.g. 25"
+                    min={1}
+                    max={120}
+                    value={form.age}
+                    onChange={e => handleChange('age', e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Contact Number */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-contact">
+                  Contact No. <span style={{ color: 'var(--danger, #ef4444)' }}>*</span>
+                </label>
+                <input
+                  id="reg-contact"
+                  type="tel"
+                  className="form-input"
+                  placeholder="e.g. 09123456789"
+                  value={form.contact_number}
+                  onChange={e => handleChange('contact_number', e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Email — auto-generated, editable */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-email">
+                  Email Address{' '}
+                  <span style={{
+                    fontSize: '0.72rem', color: 'var(--brand)',
+                    background: 'var(--brand-dim)', padding: '1px 6px',
+                    borderRadius: 4, fontWeight: 500
+                  }}>
+                    Auto-generated
+                  </span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="reg-email"
+                    type="email"
+                    className="form-input"
+                    placeholder="Will auto-fill from your name"
+                    value={form.email}
+                    onChange={e => handleEmailChange(e.target.value)}
+                    required
+                    style={{ paddingRight: emailManual ? '3rem' : undefined }}
+                  />
+                  {emailManual && (
+                    <button
+                      type="button"
+                      title="Reset to auto-generated email"
+                      onClick={() => { setEmailManual(false); }}
+                      style={{
+                        position: 'absolute', right: '0.75rem', top: '50%',
+                        transform: 'translateY(-50%)', background: 'none',
+                        border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
+                        fontSize: '0.72rem', fontWeight: 600
+                      }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+                <p style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                  Auto-filled as <strong>firstname.lastname@cms.com</strong>. You may edit it if needed.
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="modal-footer" style={{ padding: '1.25rem 0 0', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={onClose} className="btn btn-secondary" disabled={submitting}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  id="reg-submit-btn"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>Submitting…</>
+                  ) : (
+                    <><UserPlus size={15} /> Submit Registration</>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ---------- LANDING PAGE ----------
 const LandingPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showRegModal, setShowRegModal] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -43,6 +413,9 @@ const LandingPage = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
+      {/* Registration Modal */}
+      {showRegModal && <RegistrationModal onClose={() => setShowRegModal(false)} />}
+
       {/* ── NAV BAR ─────────────────────────────────── */}
       <nav className="pub-nav">
         <div className="pub-nav-logo">
@@ -66,9 +439,18 @@ const LandingPage = () => {
               Dashboard <ArrowRight size={14} />
             </button>
           ) : (
-            <Link to="/login" className="btn btn-primary btn-sm">
-              Sign In <ArrowRight size={14} />
-            </Link>
+            <>
+              <button
+                id="nav-register-btn"
+                onClick={() => setShowRegModal(true)}
+                className="btn btn-secondary btn-sm"
+              >
+                <UserPlus size={14} /> Register
+              </button>
+              <Link to="/login" className="btn btn-primary btn-sm">
+                Sign In <ArrowRight size={14} />
+              </Link>
+            </>
           )}
         </div>
       </nav>
@@ -77,11 +459,11 @@ const LandingPage = () => {
       <section className="hero-section">
         <div className="hero-tag">
           <Sparkles size={13} />
-          Premier Catering & Event Services
+          Premier Catering &amp; Event Services
         </div>
 
         <h1 className="hero-title">
-          Exquisite Culinary Experiences &{' '}
+          Exquisite Culinary Experiences &amp;{' '}
           <span>Seamless Event Logistics</span>
         </h1>
 
@@ -100,10 +482,20 @@ const LandingPage = () => {
               Go to Dashboard
             </button>
           ) : (
-            <Link to="/login" className="btn btn-primary btn-lg">
-              <Calendar size={18} />
-              Book an Event
-            </Link>
+            <>
+              <button
+                id="hero-register-btn"
+                onClick={() => setShowRegModal(true)}
+                className="btn btn-primary btn-lg"
+              >
+                <UserPlus size={18} />
+                Register Now
+              </button>
+              <Link to="/login" className="btn btn-secondary btn-lg">
+                <Calendar size={18} />
+                Sign In
+              </Link>
+            </>
           )}
           <a href="#catalog" className="btn btn-secondary btn-lg">
             View Services <ChevronRight size={16} />
@@ -185,56 +577,107 @@ const LandingPage = () => {
 
                   {/* Services grid */}
                   <div className="catalog-grid">
-                    {cat.services.map((service) => (
-                      <div key={service.service_id} className="service-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <h4 style={{
-                            fontSize: '0.95rem', fontWeight: 600,
-                            color: 'var(--text-primary)', flex: 1, marginRight: '0.5rem'
+                    {cat.services.map((service) => {
+                      const fallbackImg = 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=600&q=80';
+                      const serviceImg = service.image_url && service.image_url.trim() !== '' ? service.image_url : fallbackImg;
+                      return (
+                        <div key={service.service_id} className="service-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                          {/* Photo Banner */}
+                          <div style={{
+                            position: 'relative',
+                            height: 170,
+                            width: '100%',
+                            overflow: 'hidden',
+                            background: 'var(--bg-elevated)'
                           }}>
-                            {service.service_name}
-                          </h4>
-                          <span className="badge badge-active" style={{ flexShrink: 0 }}>Active</span>
-                        </div>
-
-                        {service.service_description && (
-                          <p style={{
-                            fontSize: '0.8rem', color: 'var(--text-muted)',
-                            lineHeight: 1.5, minHeight: 36
-                          }}>
-                            {service.service_description}
-                          </p>
-                        )}
-
-                        <div style={{
-                          display: 'flex', justifyContent: 'space-between',
-                          alignItems: 'center', borderTop: '1px solid var(--border)',
-                          paddingTop: '0.875rem', marginTop: 'auto'
-                        }}>
-                          <div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.1rem' }}>
-                              Base Price
-                            </div>
-                            <strong style={{ fontSize: '1.1rem', color: 'var(--amber)' }}>
-                              ₱{service.base_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </strong>
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
-                              /{service.unit}
+                            <img
+                              src={serviceImg}
+                              alt={service.service_name}
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = fallbackImg;
+                              }}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                transition: 'transform 0.4s ease'
+                              }}
+                            />
+                            <div style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 60%)'
+                            }} />
+                            <span className="badge badge-active" style={{
+                              position: 'absolute',
+                              top: '0.625rem',
+                              right: '0.625rem',
+                              backdropFilter: 'blur(6px)',
+                              background: 'rgba(0,0,0,0.55)',
+                              borderColor: 'rgba(34,197,94,0.4)',
+                              fontSize: '0.7rem'
+                            }}>
+                              Active
                             </span>
+                            <div style={{
+                              position: 'absolute',
+                              bottom: '0.625rem',
+                              left: '0.875rem',
+                              right: '0.875rem'
+                            }}>
+                              <h4 style={{
+                                fontSize: '0.98rem', fontWeight: 700,
+                                color: '#ffffff', textShadow: '0 2px 4px rgba(0,0,0,0.6)',
+                                margin: 0, lineHeight: 1.3
+                              }}>
+                                {service.service_name}
+                              </h4>
+                            </div>
                           </div>
-                          <button
-                            onClick={() => {
-                              if (!user) navigate('/login');
-                              else if (user.role === 'customer') navigate('/customer');
-                              else navigate(`/${user.role}`);
-                            }}
-                            className="btn btn-secondary btn-sm"
-                          >
-                            Book <ChevronRight size={13} />
-                          </button>
+
+                          {/* Card Content Body */}
+                          <div style={{ padding: '1rem 1.125rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '0.75rem' }}>
+                            {service.service_description && (
+                              <p style={{
+                                fontSize: '0.8rem', color: 'var(--text-muted)',
+                                lineHeight: 1.5, minHeight: 36, margin: 0
+                              }}>
+                                {service.service_description}
+                              </p>
+                            )}
+
+                            <div style={{
+                              display: 'flex', justifyContent: 'space-between',
+                              alignItems: 'center', borderTop: '1px solid var(--border)',
+                              paddingTop: '0.875rem', marginTop: 'auto'
+                            }}>
+                              <div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.1rem' }}>
+                                  Base Price
+                                </div>
+                                <strong style={{ fontSize: '1.1rem', color: 'var(--amber)' }}>
+                                  ₱{service.base_price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                </strong>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
+                                  /{service.unit}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  if (!user) setShowRegModal(true);
+                                  else if (user.role === 'customer') navigate('/customer');
+                                  else navigate(`/${user.role}`);
+                                }}
+                                className="btn btn-secondary btn-sm"
+                              >
+                                Book <ChevronRight size={13} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
