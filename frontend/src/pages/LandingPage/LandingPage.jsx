@@ -482,24 +482,15 @@ const LandingPage = () => {
               Go to Dashboard
             </button>
           ) : (
-            <>
-              <button
-                id="hero-register-btn"
-                onClick={() => setShowRegModal(true)}
-                className="btn btn-primary btn-lg"
-              >
-                <UserPlus size={18} />
-                Register Now
-              </button>
-              <Link to="/login" className="btn btn-secondary btn-lg">
-                <Calendar size={18} />
-                Sign In
-              </Link>
-            </>
+            <button
+              id="hero-register-btn"
+              onClick={() => setShowRegModal(true)}
+              className="btn btn-primary btn-lg"
+            >
+              <UserPlus size={18} />
+              Register Now
+            </button>
           )}
-          <a href="#catalog" className="btn btn-secondary btn-lg">
-            View Services <ChevronRight size={16} />
-          </a>
         </div>
 
         {/* Trust badges */}
@@ -689,16 +680,85 @@ const LandingPage = () => {
       {/* ── FOOTER ──────────────────────────────────── */}
       <footer style={{
         borderTop: '1px solid var(--border)',
-        padding: '2rem',
-        textAlign: 'center',
+        background: 'var(--bg-elevated)',
+        padding: '3rem 2rem 2rem',
         color: 'var(--text-muted)',
-        fontSize: '0.8rem'
+        fontSize: '0.85rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <UtensilsCrossed size={14} style={{ color: 'var(--brand)' }} />
-          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>CaterMS</span>
+        <div style={{
+          maxWidth: 960,
+          margin: '0 auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '2rem',
+          marginBottom: '2.5rem'
+        }}>
+          {/* Brand */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+              <UtensilsCrossed size={18} style={{ color: 'var(--brand)' }} />
+              <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>CaterMS</span>
+            </div>
+            <p style={{ lineHeight: 1.7, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+              Your premier catering partner for every occasion — from intimate gatherings to grand celebrations.
+            </p>
+          </div>
+
+          {/* Contact Info */}
+          <div>
+            <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.875rem', fontSize: '0.9rem' }}>
+              Contact Us
+            </h4>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <span style={{ color: 'var(--brand)', flexShrink: 0 }}>📞</span>
+                <span>+63 912 345 6789</span>
+              </li>
+              <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <span style={{ color: 'var(--brand)', flexShrink: 0 }}>✉️</span>
+                <a href="mailto:support@caterms.com" style={{ color: 'var(--brand)', textDecoration: 'none' }}>
+                  support@caterms.com
+                </a>
+              </li>
+              <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <span style={{ color: 'var(--brand)', flexShrink: 0 }}>📍</span>
+                <span>123 Fiesta Avenue, Quezon City, Metro Manila, Philippines</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Business Hours */}
+          <div>
+            <h4 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.875rem', fontSize: '0.9rem' }}>
+              Business Hours
+            </h4>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+              <li style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                <span>Monday – Friday</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>8:00 AM – 6:00 PM</span>
+              </li>
+              <li style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                <span>Saturday</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>9:00 AM – 5:00 PM</span>
+              </li>
+              <li style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                <span>Sunday</span>
+                <span style={{ color: 'var(--amber)', fontWeight: 600 }}>By Appointment</span>
+              </li>
+            </ul>
+          </div>
         </div>
-        © {new Date().getFullYear()} Catering Management System. All rights reserved.
+
+        {/* Bottom bar */}
+        <div style={{
+          borderTop: '1px solid var(--border)',
+          paddingTop: '1.25rem',
+          textAlign: 'center',
+          fontSize: '0.78rem',
+          color: 'var(--text-muted)'
+        }}>
+          © {new Date().getFullYear()} Catering Management System. All rights reserved.
+        </div>
       </footer>
     </div>
   );
