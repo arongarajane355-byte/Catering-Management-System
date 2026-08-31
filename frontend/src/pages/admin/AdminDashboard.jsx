@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Sidebar from '../../components/common/Sidebar';
+import EventWorkflowManagement from '../../components/workflow/EventWorkflowManagement';
 import {
   ShieldCheck, UserCheck, Users, DollarSign, Calendar, AlertCircle,
   Plus, Check, X, Layers, ShoppingBag, CheckCircle2, Search, ChevronLeft, ChevronRight,
@@ -172,6 +173,12 @@ const AdminDashboard = () => {
   const handleCreateStaff = async (e) => {
     e.preventDefault();
     setStaffMsg('');
+
+    const contact = (staffForm.contact_number || '').trim();
+    if (contact.length !== 11 || !/^\d{11}$/.test(contact)) {
+      setStaffMsg('Contact number must be exactly 11 digits (e.g. 09123456789).');
+      return;
+    }
 
     try {
       await api.post('/admin/users', staffForm);
@@ -358,6 +365,11 @@ const AdminDashboard = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Tab: Event Lifecycle & Preparation Workflow */}
+          {activeTab === 'event_workflow' && (
+            <EventWorkflowManagement />
           )}
 
           {/* Tab: Pending Verifications */}
@@ -970,8 +982,18 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Contact Number</label>
-                  <input type="text" className="form-input" value={staffForm.contact_number} onChange={(e) => setStaffForm({ ...staffForm, contact_number: e.target.value })} required />
+                  <label className="form-label">Contact Number <span style={{ color: 'var(--danger, #ef4444)' }}>*</span></label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={11}
+                    pattern="[0-9]{11}"
+                    className="form-input"
+                    placeholder="e.g. 09123456789 (11 digits)"
+                    value={staffForm.contact_number}
+                    onChange={(e) => setStaffForm({ ...staffForm, contact_number: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                    required
+                  />
                 </div>
                 <div className="grid-2">
                   <div className="form-group">

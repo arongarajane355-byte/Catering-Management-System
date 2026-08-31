@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Sidebar from '../../components/common/Sidebar';
+import EventWorkflowManagement from '../../components/workflow/EventWorkflowManagement';
 import {
   UserPlus, Clock, Calendar, CheckSquare, DollarSign, Eye, EyeOff,
   CheckCircle2, ShieldAlert, X, AlertCircle, Search, ChevronLeft, ChevronRight
@@ -38,7 +39,12 @@ const AddCustomerFormContent = ({ onCancel, onSuccess, isModal = false }) => {
   }, [form.firstname, form.lastname, emailManual]);
 
   const handleChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+    if (field === 'contact_number') {
+      const numeric = value.replace(/\D/g, '').slice(0, 11);
+      setForm(prev => ({ ...prev, [field]: numeric }));
+    } else {
+      setForm(prev => ({ ...prev, [field]: value }));
+    }
     setError('');
   };
 
@@ -60,6 +66,11 @@ const AddCustomerFormContent = ({ onCancel, onSuccess, isModal = false }) => {
 
     if (!fn || !ln || !contact || !email || isNaN(ageVal)) {
       setError('Please fill in all required customer fields (First Name, Last Name, Gender, Age, Contact No., and Email).');
+      return;
+    }
+
+    if (contact.length !== 11 || !/^\d{11}$/.test(contact)) {
+      setError('Contact No. must be exactly 11 digits (e.g. 09123456789).');
       return;
     }
 
@@ -267,8 +278,11 @@ const AddCustomerFormContent = ({ onCancel, onSuccess, isModal = false }) => {
             <input
               id="staff-contact"
               type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              pattern="[0-9]{11}"
               className="form-input"
-              placeholder="e.g. 09123456789"
+              placeholder="e.g. 09123456789 (11 digits)"
               value={form.contact_number}
               onChange={e => handleChange('contact_number', e.target.value)}
               required
@@ -577,6 +591,11 @@ const StaffDashboard = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Tab: Event Lifecycle & Preparation Workflow */}
+          {activeTab === 'event_workflow' && (
+            <EventWorkflowManagement />
           )}
 
           {/* Tab: Bookings Queue */}

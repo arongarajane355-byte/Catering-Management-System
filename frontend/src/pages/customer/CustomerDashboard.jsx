@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/common/Sidebar';
+import CustomerEventTracker from '../../components/workflow/CustomerEventTracker';
 import {
   Calendar, Plus, UserCheck, Eye, EyeOff, Clock, MapPin, Users, DollarSign,
   X, CheckCircle, AlertCircle, Search, ChevronLeft, ChevronRight
@@ -159,6 +160,11 @@ const CustomerDashboard = () => {
       return;
     }
 
+    if (contact.length !== 11 || !/^\d{11}$/.test(contact)) {
+      setProfileMsg({ text: 'Contact Number must be exactly 11 digits (e.g. 09123456789).', isError: true });
+      return;
+    }
+
     try {
       await api.put('/customer/profile', {
         firstname: fn,
@@ -312,6 +318,11 @@ const CustomerDashboard = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Tab: Event Lifecycle Tracker & Prep */}
+          {activeTab === 'event_tracker' && (
+            <CustomerEventTracker />
           )}
 
           {/* Tab: Bookings */}
@@ -551,10 +562,14 @@ const CustomerDashboard = () => {
                   </label>
                   <input
                     id="profile-contact"
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={11}
+                    pattern="[0-9]{11}"
                     className="form-input"
+                    placeholder="e.g. 09123456789 (11 digits)"
                     value={profileForm.contact_number}
-                    onChange={(e) => setProfileForm({ ...profileForm, contact_number: e.target.value })}
+                    onChange={(e) => setProfileForm({ ...profileForm, contact_number: e.target.value.replace(/\D/g, '').slice(0, 11) })}
                     required
                   />
                 </div>
