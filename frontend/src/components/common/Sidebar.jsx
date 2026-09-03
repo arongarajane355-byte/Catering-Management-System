@@ -21,6 +21,7 @@ const navsByRole = {
     { key: 'bookings',      label: 'Bookings Queue',   icon: Calendar },
     { key: 'add_customer',  label: 'Add Customer',     icon: Users },
     { key: 'encoded_list',  label: 'Verification Tracker', icon: UserCheck },
+    { key: 'profile',       label: 'Profile Settings', icon: Settings },
   ],
   admin: [
     { key: 'overview',      label: 'Overview',         icon: LayoutDashboard },
@@ -29,6 +30,7 @@ const navsByRole = {
     { key: 'users',         label: 'Users Management', icon: Users },
     { key: 'services',      label: 'Service Catalog',  icon: ShoppingBag },
     { key: 'reports',       label: 'Financial Reports', icon: BarChart3 },
+    { key: 'profile',       label: 'Profile Settings', icon: Settings },
   ],
 };
 

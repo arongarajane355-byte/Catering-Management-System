@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Sidebar from '../../components/common/Sidebar';
 import EventWorkflowManagement from '../../components/workflow/EventWorkflowManagement';
+import ProfileSettings from '../../components/common/ProfileSettings';
 import {
   ShieldCheck, UserCheck, Users, DollarSign, Calendar, AlertCircle,
   Plus, Check, X, Layers, ShoppingBag, CheckCircle2, Search, ChevronLeft, ChevronRight,
-  Copy, KeyRound
+  Copy, KeyRound, Eye
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -17,6 +18,9 @@ const AdminDashboard = () => {
   const [services, setServices] = useState([]);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // View User Details Modal Target
+  const [viewUserModalTarget, setViewUserModalTarget] = useState(null);
 
   // Verification Modal
   const [verifyModalTarget, setVerifyModalTarget] = useState(null);
@@ -180,6 +184,12 @@ const AdminDashboard = () => {
       return;
     }
 
+    const email = (staffForm.email || '').trim().toLowerCase();
+    if (!email.endsWith('@gmail.com')) {
+      setStaffMsg('User email address must use @gmail.com (e.g. name@gmail.com).');
+      return;
+    }
+
     try {
       await api.post('/admin/users', staffForm);
       setStaffMsg(`${staffForm.role === 'staff' ? 'Staff' : 'Customer'} account created successfully!`);
@@ -313,17 +323,36 @@ const AdminDashboard = () => {
                             <td>{u.staff_firstname ? `${u.staff_firstname} ${u.staff_lastname}` : <span style={{ color: 'var(--brand)', fontSize: '0.8rem' }}>Self-Registered</span>}</td>
                             <td>{new Date(u.created_at).toLocaleDateString()}</td>
                             <td>
-                              <button
-                                onClick={() => {
-                                  setVerifyModalTarget(u);
-                                  setVerifyAction('approved');
-                                  setVerifyRemarks('Documents & credentials verified by Admin.');
-                                  setVerifyMsg('');
-                                }}
-                                className="btn btn-primary btn-sm"
-                              >
-                                <ShieldCheck size={14} /> Review & Verify
-                              </button>
+                              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                <button
+                                  onClick={() => {
+                                    setVerifyModalTarget(u);
+                                    setVerifyAction('approved');
+                                    setVerifyRemarks('Documents & credentials verified by Admin.');
+                                    setVerifyMsg('');
+                                    setGeneratedPassword('');
+                                  }}
+                                  className="btn btn-success btn-sm"
+                                  style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                  title="Approve Account"
+                                >
+                                  <CheckCircle2 size={13} /> Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setVerifyModalTarget(u);
+                                    setVerifyAction('rejected');
+                                    setVerifyRemarks('Documents or credentials unverified.');
+                                    setVerifyMsg('');
+                                    setGeneratedPassword('');
+                                  }}
+                                  className="btn btn-danger btn-sm"
+                                  style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                  title="Reject Account"
+                                >
+                                  <X size={13} /> Reject
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -430,17 +459,36 @@ const AdminDashboard = () => {
                           <td>{u.staff_firstname ? `${u.staff_firstname} ${u.staff_lastname}` : <span style={{ color: 'var(--brand)', fontWeight: 500 }}>Self-Registered</span>}</td>
                           <td>{new Date(u.created_at).toLocaleDateString()}</td>
                           <td>
-                            <button
-                              onClick={() => {
-                                setVerifyModalTarget(u);
-                                setVerifyAction('approved');
-                                setVerifyRemarks('Documents & credentials verified by Admin.');
-                                setVerifyMsg('');
-                              }}
-                              className="btn btn-primary btn-sm"
-                            >
-                              <ShieldCheck size={14} /> Review & Verify
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button
+                                onClick={() => {
+                                  setVerifyModalTarget(u);
+                                  setVerifyAction('approved');
+                                  setVerifyRemarks('Documents & credentials verified by Admin.');
+                                  setVerifyMsg('');
+                                  setGeneratedPassword('');
+                                }}
+                                className="btn btn-success btn-sm"
+                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                title="Approve Account"
+                              >
+                                <CheckCircle2 size={13} /> Approve
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setVerifyModalTarget(u);
+                                  setVerifyAction('rejected');
+                                  setVerifyRemarks('Documents or credentials unverified.');
+                                  setVerifyMsg('');
+                                  setGeneratedPassword('');
+                                }}
+                                className="btn btn-danger btn-sm"
+                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                title="Reject Account"
+                              >
+                                <X size={13} /> Reject
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -534,36 +582,47 @@ const AdminDashboard = () => {
                         </td>
                         <td>{new Date(u.created_at).toLocaleDateString()}</td>
                         <td>
-                          {(u.account_status === 'active' || u.account_status === 'verified') ? (
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                             <button
-                              onClick={() => handleToggleStaffStatus(u.user_id, u.account_status)}
-                              className="btn btn-sm btn-danger"
+                              onClick={() => setViewUserModalTarget(u)}
+                              className="btn btn-sm btn-secondary"
+                              style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                              title="View Account Details"
                             >
-                              Deactivate
+                              <Eye size={13} /> View
                             </button>
-                          ) : u.account_status === 'inactive' ? (
-                            <button
-                              onClick={() => handleToggleStaffStatus(u.user_id, u.account_status)}
-                              className="btn btn-sm btn-success"
-                            >
-                              Activate
-                            </button>
-                          ) : u.account_status === 'pending' && u.role === 'customer' ? (
-                            <button
-                              onClick={() => {
-                                setVerifyModalTarget(u);
-                                setVerifyAction('approved');
-                                setVerifyRemarks('Documents & credentials verified by Admin.');
-                                setVerifyMsg('');
-                              }}
-                              className="btn btn-sm btn-warning"
-                              style={{ background: 'var(--amber)', color: '#000' }}
-                            >
-                              Verify
-                            </button>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
-                          )}
+
+                            {(u.account_status === 'active' || u.account_status === 'verified') ? (
+                              <button
+                                onClick={() => handleToggleStaffStatus(u.user_id, u.account_status)}
+                                className="btn btn-sm btn-danger"
+                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem' }}
+                              >
+                                Deactivate
+                              </button>
+                            ) : u.account_status === 'inactive' ? (
+                              <button
+                                onClick={() => handleToggleStaffStatus(u.user_id, u.account_status)}
+                                className="btn btn-sm btn-success"
+                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem' }}
+                              >
+                                Activate
+                              </button>
+                            ) : u.account_status === 'pending' && u.role === 'customer' ? (
+                              <button
+                                onClick={() => {
+                                  setVerifyModalTarget(u);
+                                  setVerifyAction('approved');
+                                  setVerifyRemarks('Documents & credentials verified by Admin.');
+                                  setVerifyMsg('');
+                                }}
+                                className="btn btn-sm btn-warning"
+                                style={{ background: 'var(--amber)', color: '#000', padding: '0.25rem 0.55rem', fontSize: '0.78rem' }}
+                              >
+                                Verify
+                              </button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -762,6 +821,11 @@ const AdminDashboard = () => {
             </div>
             );
           })()}
+
+          {/* Tab: Profile Settings */}
+          {activeTab === 'profile' && (
+            <ProfileSettings />
+          )}
         </div>
       </main>
 
@@ -1091,6 +1155,95 @@ const AdminDashboard = () => {
                   <button type="submit" className="btn btn-primary">Save Service</button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: View User Account Details (Admin Only) */}
+      {viewUserModalTarget && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal-box" style={{ maxWidth: '580px', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 'var(--r-lg)', background: 'var(--brand-dim)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Eye size={18} />
+                </div>
+                <div>
+                  <h3 className="modal-title" style={{ margin: 0 }}>User Account Details</h3>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+                    Complete profile metadata for account #{viewUserModalTarget.user_id}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setViewUserModalTarget(null)} className="btn btn-ghost btn-icon">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ paddingTop: '1.25rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.88rem' }}>
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>User ID</div>
+                  <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>#{viewUserModalTarget.user_id}</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Customer / Account No.</div>
+                  <div style={{ fontWeight: 700, color: 'var(--brand)' }}>{viewUserModalTarget.customer_no || 'N/A (Staff/Admin)'}</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Full Name</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {viewUserModalTarget.lastname}, {viewUserModalTarget.firstname} {viewUserModalTarget.middlename ? `(${viewUserModalTarget.middlename})` : ''}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Account Role</div>
+                  <div>
+                    <span className={`badge ${viewUserModalTarget.role === 'staff' ? 'badge-pending' : viewUserModalTarget.role === 'admin' ? 'badge-primary' : 'badge-preparing'}`}>
+                      {viewUserModalTarget.role.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Email Address</div>
+                  <div style={{ fontWeight: 600, color: 'var(--brand)', wordBreak: 'break-all' }}>{viewUserModalTarget.email}</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Contact Number</div>
+                  <div style={{ fontWeight: 600 }}>{viewUserModalTarget.contact_number}</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Demographics</div>
+                  <div>{viewUserModalTarget.gender}, {viewUserModalTarget.age} years old</div>
+                </div>
+
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Account Status</div>
+                  <div>
+                    <span className={`badge badge-${viewUserModalTarget.account_status}`}>
+                      {viewUserModalTarget.account_status}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', gridColumn: 'span 2' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Date Registered / Created</div>
+                  <div>{new Date(viewUserModalTarget.created_at).toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ padding: '1.25rem 0 0', marginTop: '1rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setViewUserModalTarget(null)} className="btn btn-primary">
+                  Close Details
+                </button>
+              </div>
             </div>
           </div>
         </div>

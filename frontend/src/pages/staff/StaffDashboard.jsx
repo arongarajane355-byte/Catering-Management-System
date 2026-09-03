@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Sidebar from '../../components/common/Sidebar';
 import EventWorkflowManagement from '../../components/workflow/EventWorkflowManagement';
+import ProfileSettings from '../../components/common/ProfileSettings';
 import {
   UserPlus, Clock, Calendar, CheckSquare, DollarSign, Eye, EyeOff,
-  CheckCircle2, ShieldAlert, X, AlertCircle, Search, ChevronLeft, ChevronRight
+  CheckCircle2, ShieldAlert, X, AlertCircle, Search, ChevronLeft, ChevronRight,
+  ShieldCheck, Copy, KeyRound
 } from 'lucide-react';
 
 // ---------- ADD CUSTOMER MODAL & FORM (SAME DESIGN & LOGIC AS LANDINGPAGE REGISTRATION MODAL) ----------
@@ -30,7 +32,7 @@ const AddCustomerFormContent = ({ onCancel, onSuccess, isModal = false }) => {
       const fn = form.firstname.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
       const ln = form.lastname.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
       if (fn || ln) {
-        const generated = fn && ln ? `${fn}.${ln}@cms.com` : fn ? `${fn}@cms.com` : `${ln}@cms.com`;
+        const generated = fn && ln ? `${fn}.${ln}@gmail.com` : fn ? `${fn}@gmail.com` : `${ln}@gmail.com`;
         setForm(prev => ({ ...prev, email: generated }));
       } else {
         setForm(prev => ({ ...prev, email: '' }));
@@ -66,6 +68,11 @@ const AddCustomerFormContent = ({ onCancel, onSuccess, isModal = false }) => {
 
     if (!fn || !ln || !contact || !email || isNaN(ageVal)) {
       setError('Please fill in all required customer fields (First Name, Last Name, Gender, Age, Contact No., and Email).');
+      return;
+    }
+
+    if (!email.endsWith('@gmail.com')) {
+      setError('Customer email address must use @gmail.com (e.g. name@gmail.com).');
       return;
     }
 
@@ -329,7 +336,7 @@ const AddCustomerFormContent = ({ onCancel, onSuccess, isModal = false }) => {
               )}
             </div>
             <p style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-              Auto-filled as <strong>firstname.lastname@cms.com</strong>.
+              Auto-filled as <strong>firstname.lastname@gmail.com</strong>.
             </p>
           </div>
 
@@ -388,11 +395,60 @@ const StaffDashboard = () => {
   });
   const [paymentMsg, setPaymentMsg] = useState('');
 
+  // Verification Modal State
+  const [verifyModalTarget, setVerifyModalTarget] = useState(null);
+  const [verifyAction, setVerifyAction] = useState('approved');
+  const [verifyRemarks, setVerifyRemarks] = useState('');
+  const [verifyMsg, setVerifyMsg] = useState('');
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [pwdCopied, setPwdCopied] = useState(false);
+
   useEffect(() => {
     fetchStaffDashboard();
     fetchCreatedCustomers();
     fetchBookingsQueue();
   }, []);
+
+  const handleVerifyAccountSubmit = async (e) => {
+    e.preventDefault();
+    setVerifyMsg('');
+    setGeneratedPassword('');
+    setPwdCopied(false);
+
+    try {
+      const res = await api.post('/staff/verify-customer', {
+        user_id: verifyModalTarget.user_id,
+        action: verifyAction,
+        remarks: verifyRemarks
+      });
+
+      setVerifyMsg(`Account successfully ${verifyAction}!`);
+      if (res.data.generated_password) {
+        setGeneratedPassword(res.data.generated_password);
+      }
+      if (verifyAction !== 'approved') {
+        setTimeout(() => {
+          setVerifyModalTarget(null);
+          fetchCreatedCustomers();
+          fetchStaffDashboard();
+        }, 800);
+      } else {
+        fetchCreatedCustomers();
+        fetchStaffDashboard();
+      }
+    } catch (err) {
+      setVerifyMsg(err.response?.data?.message || 'Verification action failed.');
+    }
+  };
+
+  const handleCopyPassword = () => {
+    if (generatedPassword) {
+      navigator.clipboard.writeText(generatedPassword).then(() => {
+        setPwdCopied(true);
+        setTimeout(() => setPwdCopied(false), 2500);
+      });
+    }
+  };
 
   const fetchStaffDashboard = async () => {
     try {
@@ -786,11 +842,12 @@ const StaffDashboard = () => {
                       <th>Status</th>
                       <th>Admin Remarks</th>
                       <th>Date Encoded</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredEnc.length === 0 ? (
-                      <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No customer accounts found.</td></tr>
+                      <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No customer accounts found.</td></tr>
                     ) : filteredEnc.map((c) => (
                       <tr key={c.user_id}>
                         <td><span className="badge badge-pending">{c.customer_no || `CUST-${new Date(c.created_at).getFullYear()}-${String(c.user_id).padStart(4, '0')}`}</span></td>
@@ -805,6 +862,42 @@ const StaffDashboard = () => {
                         </td>
                         <td>{c.remarks || '—'}</td>
                         <td>{new Date(c.created_at).toLocaleDateString()}</td>
+                        <td>
+                          {c.account_status === 'pending' ? (
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button
+                                onClick={() => {
+                                  setVerifyModalTarget(c);
+                                  setVerifyAction('approved');
+                                  setVerifyRemarks('Customer documents & details verified by staff.');
+                                  setVerifyMsg('');
+                                  setGeneratedPassword('');
+                                }}
+                                className="btn btn-success btn-sm"
+                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                title="Approve Customer Account"
+                              >
+                                <CheckCircle2 size={13} /> Approve
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setVerifyModalTarget(c);
+                                  setVerifyAction('rejected');
+                                  setVerifyRemarks('Incomplete credentials or details.');
+                                  setVerifyMsg('');
+                                  setGeneratedPassword('');
+                                }}
+                                className="btn btn-danger btn-sm"
+                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                title="Reject Customer Account"
+                              >
+                                <X size={13} /> Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -813,6 +906,11 @@ const StaffDashboard = () => {
             </div>
             );
           })()}
+
+          {/* Tab: Profile Settings */}
+          {activeTab === 'profile' && (
+            <ProfileSettings />
+          )}
         </div>
       </main>
 
@@ -920,6 +1018,108 @@ const StaffDashboard = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Customer Verification (Staff) */}
+      {verifyModalTarget && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal-box" style={{ maxWidth: '550px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">
+                Verify Customer Account: {verifyModalTarget.firstname} {verifyModalTarget.lastname}
+              </h3>
+              <button onClick={() => setVerifyModalTarget(null)} className="btn btn-ghost btn-icon">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {verifyMsg && (
+                <div className={`alert ${verifyAction === 'approved' ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '1rem' }}>
+                  {verifyAction === 'approved' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  <span>{verifyMsg}</span>
+                </div>
+              )}
+
+              {generatedPassword ? (
+                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                  <div style={{
+                    background: 'var(--bg-elevated)', border: '1px dashed var(--brand)',
+                    borderRadius: 'var(--r-lg)', padding: '1.25rem', marginBottom: '1.25rem'
+                  }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                      Auto-Generated Customer Password:
+                    </div>
+                    <div style={{
+                      fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 700,
+                      color: 'var(--brand)', letterSpacing: '0.08em', marginBottom: '0.75rem'
+                    }}>
+                      {generatedPassword}
+                    </div>
+                    <button
+                      onClick={handleCopyPassword}
+                      className="btn btn-secondary btn-sm"
+                      style={{ margin: '0 auto', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      <Copy size={14} /> {pwdCopied ? 'Copied to Clipboard!' : 'Copy Password'}
+                    </button>
+                  </div>
+                  <button onClick={() => setVerifyModalTarget(null)} className="btn btn-primary">
+                    Done — Close Modal
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleVerifyAccountSubmit}>
+                  <div className="form-group mb-4">
+                    <label className="form-label">Verification Action</label>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="verifyActionStaff"
+                          value="approved"
+                          checked={verifyAction === 'approved'}
+                          onChange={() => setVerifyAction('approved')}
+                        />
+                        <span style={{ color: 'var(--success, #22c55e)', fontWeight: 600 }}>Approve Account</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="verifyActionStaff"
+                          value="rejected"
+                          checked={verifyAction === 'rejected'}
+                          onChange={() => setVerifyAction('rejected')}
+                        />
+                        <span style={{ color: 'var(--danger, #ef4444)', fontWeight: 600 }}>Reject Account</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="form-group mb-4">
+                    <label className="form-label">Remarks / Verification Notes</label>
+                    <textarea
+                      className="form-input"
+                      rows={3}
+                      placeholder="Enter verification notes or rejection details…"
+                      value={verifyRemarks}
+                      onChange={(e) => setVerifyRemarks(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="modal-footer" style={{ padding: '1rem 0 0 0', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                    <button type="button" onClick={() => setVerifyModalTarget(null)} className="btn btn-secondary">
+                      Cancel
+                    </button>
+                    <button type="submit" className={`btn ${verifyAction === 'approved' ? 'btn-success' : 'btn-danger'}`}>
+                      Confirm {verifyAction === 'approved' ? 'Approval' : 'Rejection'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>

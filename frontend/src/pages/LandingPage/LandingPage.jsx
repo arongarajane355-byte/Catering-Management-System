@@ -45,7 +45,7 @@ const RegistrationModal = ({ onClose }) => {
       const fn = form.firstname.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
       const ln = form.lastname.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
       if (fn || ln) {
-        const generated = fn && ln ? `${fn}.${ln}@cms.com` : fn ? `${fn}@cms.com` : `${ln}@cms.com`;
+        const generated = fn && ln ? `${fn}.${ln}@gmail.com` : fn ? `${fn}@gmail.com` : `${ln}@gmail.com`;
         setForm(prev => ({ ...prev, email: generated }));
       } else {
         setForm(prev => ({ ...prev, email: '' }));
@@ -81,6 +81,11 @@ const RegistrationModal = ({ onClose }) => {
 
     if (!fn || !ln || !contact || !email || isNaN(ageVal)) {
       setError('Please fill in all required fields (First Name, Last Name, Gender, Age, Contact No., and Email).');
+      return;
+    }
+
+    if (!email.endsWith('@gmail.com')) {
+      setError('Email address must use @gmail.com (e.g. user@gmail.com).');
       return;
     }
 
@@ -373,7 +378,7 @@ const RegistrationModal = ({ onClose }) => {
                   )}
                 </div>
                 <p style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                  Auto-filled as <strong>firstname.lastname@cms.com</strong>. You may edit it if needed.
+                  Auto-filled as <strong>firstname.lastname@gmail.com</strong>. You may edit it if needed.
                 </p>
               </div>
 
