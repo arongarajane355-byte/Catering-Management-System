@@ -413,6 +413,7 @@ const LandingPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRegModal, setShowRegModal] = useState(false);
+  const [selectedServiceModal, setSelectedServiceModal] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -430,9 +431,99 @@ const LandingPage = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div style={{
+      minHeight: '100vh',
+      background: `linear-gradient(180deg, rgba(6, 12, 24, 0.85) 0%, rgba(6, 12, 24, 0.96) 100%), url("https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=1920&q=80")`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+      color: 'var(--text-primary)'
+    }}>
       {/* Registration Modal */}
       {showRegModal && <RegistrationModal onClose={() => setShowRegModal(false)} />}
+
+      {/* Service Detail Overview Modal (pisliton ma view) */}
+      {selectedServiceModal && (
+        <div className="modal-overlay" style={{ zIndex: 1000, background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)' }}>
+          <div className="modal-box animated-gradient-box" style={{ maxWidth: 620, width: '92%', borderRadius: 'var(--r-xl)', overflow: 'hidden', padding: 0, border: '1px solid var(--border-brand)' }}>
+            {/* Banner Header */}
+            <div style={{ position: 'relative', height: 240, width: '100%', overflow: 'hidden' }}>
+              <img
+                src={selectedServiceModal.image_url || 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=600&q=80'}
+                alt={selectedServiceModal.service_name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(6,12,24,0.95) 0%, transparent 65%)' }} />
+              <button
+                onClick={() => setSelectedServiceModal(null)}
+                className="btn btn-ghost btn-icon"
+                style={{ position: 'absolute', top: '0.875rem', right: '0.875rem', background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={18} />
+              </button>
+              <div style={{ position: 'absolute', bottom: '1rem', left: '1.25rem', right: '1.25rem' }}>
+                <span className="badge badge-active" style={{ marginBottom: '0.4rem', display: 'inline-block', fontSize: '0.75rem' }}>
+                  {selectedServiceModal.category_name || 'Catering Package'}
+                </span>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', margin: 0 }}>
+                  {selectedServiceModal.service_name}
+                </h3>
+              </div>
+            </div>
+
+            {/* Modal Body Content */}
+            <div style={{ padding: '1.5rem' }}>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--brand)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+                  Service &amp; Package Specifications
+                </div>
+                <p style={{ fontSize: '0.925rem', color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0 }}>
+                  {selectedServiceModal.service_description || 'Full-service catering package including fresh gourmet meal preparation, on-site setup, buffet serving warmers, tableware, utensils, and staff coordination.'}
+                </p>
+              </div>
+
+              {/* Price Banner */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                background: 'rgba(13, 21, 38, 0.8)', padding: '1.1rem 1.25rem', borderRadius: 'var(--r-lg)',
+                border: '1px solid var(--border)', marginBottom: '1.5rem'
+              }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.1rem' }}>Package Base Rate</div>
+                  <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--amber)' }}>
+                    ₱{selectedServiceModal.base_price ? selectedServiceModal.base_price.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00'}
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.35rem' }}>
+                      / {selectedServiceModal.unit || 'unit'}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#22c55e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(34,197,94,0.1)', padding: '0.4rem 0.875rem', borderRadius: 'var(--r-full)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                  <CheckCircle2 size={15} /> Available for Booking
+                </div>
+              </div>
+
+              {/* Modal Action Buttons */}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.125rem', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button onClick={() => setSelectedServiceModal(null)} className="btn btn-secondary" style={{ borderRadius: 'var(--r-md)' }}>
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedServiceModal(null);
+                    if (!user) setShowRegModal(true);
+                    else if (user.role === 'customer') navigate('/customer');
+                    else navigate(`/${user.role}`);
+                  }}
+                  className="btn btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRadius: 'var(--r-md)' }}
+                >
+                  Book / Reserve Package <ArrowRight size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── NAV BAR ─────────────────────────────────── */}
       <nav className="pub-nav">
@@ -447,28 +538,21 @@ const LandingPage = () => {
           />
           CaterMS
         </div>
-        <div className="pub-nav-links">
-          <a href="#catalog" className="pub-nav-link">Services</a>
+        <div className="pub-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+          <a href="#catalog" className="btn-nav-animated-gradient">
+            ✨ Services
+          </a>
           {user ? (
             <button
               onClick={() => navigate(`/${user.role}`)}
-              className="btn btn-primary btn-sm"
+              className="btn-nav-animated-gradient"
             >
               Dashboard <ArrowRight size={14} />
             </button>
           ) : (
-            <>
-              <button
-                id="nav-register-btn"
-                onClick={() => setShowRegModal(true)}
-                className="btn btn-secondary btn-sm"
-              >
-                <UserPlus size={14} /> Register
-              </button>
-              <Link to="/login" className="btn btn-primary btn-sm">
-                Sign In <ArrowRight size={14} />
-              </Link>
-            </>
+            <Link to="/login" className="btn-nav-animated-gradient">
+              Sign In <ArrowRight size={14} />
+            </Link>
           )}
         </div>
       </nav>
@@ -494,7 +578,8 @@ const LandingPage = () => {
           {user ? (
             <button
               onClick={() => navigate(`/${user.role}`)}
-              className="btn btn-primary btn-lg"
+              className="btn-nav-animated-gradient"
+              style={{ padding: '0.85rem 2rem', fontSize: '1rem' }}
             >
               <Calendar size={18} />
               Go to Dashboard
@@ -503,7 +588,8 @@ const LandingPage = () => {
             <button
               id="hero-register-btn"
               onClick={() => setShowRegModal(true)}
-              className="btn btn-primary btn-lg"
+              className="btn-nav-animated-gradient"
+              style={{ padding: '0.85rem 2rem', fontSize: '1rem' }}
             >
               <UserPlus size={18} />
               Register Now
@@ -590,7 +676,15 @@ const LandingPage = () => {
                       const fallbackImg = 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=600&q=80';
                       const serviceImg = service.image_url && service.image_url.trim() !== '' ? service.image_url : fallbackImg;
                       return (
-                        <div key={service.service_id} className="service-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div
+                          key={service.service_id}
+                          className="service-card"
+                          onClick={() => setSelectedServiceModal({ ...service, category_name: cat.category_name })}
+                          style={{
+                            padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                            cursor: 'pointer'
+                          }}
+                        >
                           {/* Photo Banner */}
                           <div style={{
                             position: 'relative',
@@ -673,14 +767,14 @@ const LandingPage = () => {
                                 </span>
                               </div>
                               <button
-                                onClick={() => {
-                                  if (!user) setShowRegModal(true);
-                                  else if (user.role === 'customer') navigate('/customer');
-                                  else navigate(`/${user.role}`);
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedServiceModal({ ...service, category_name: cat.category_name });
                                 }}
                                 className="btn btn-secondary btn-sm"
+                                style={{ borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                               >
-                                Book <ChevronRight size={13} />
+                                View <ChevronRight size={13} />
                               </button>
                             </div>
                           </div>
