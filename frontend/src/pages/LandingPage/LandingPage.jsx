@@ -730,7 +730,7 @@ const LandingPage = () => {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                 <span style={{ color: 'var(--brand)', flexShrink: 0 }}>📞</span>
-                <span>+63 912 345 6789</span>
+                <span>+63 9103940890</span>
               </li>
               <li style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                 <span style={{ color: 'var(--brand)', flexShrink: 0 }}>✉️</span>
