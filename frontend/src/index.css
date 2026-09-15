@@ -1312,23 +1312,35 @@ textarea {
 
 /* ===== ANIMATED GRADIENT BOX CONTAINERS (LUHAG-LUHAG BOX GRADIENT) ===== */
 @keyframes gradientBgShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 @keyframes borderGlowPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     border-color: rgba(249, 115, 22, 0.45);
     box-shadow: 0 0 15px rgba(249, 115, 22, 0.2), inset 0 0 10px rgba(249, 115, 22, 0.05);
   }
+
   50% {
     border-color: rgba(168, 85, 247, 0.65);
     box-shadow: 0 0 25px rgba(168, 85, 247, 0.3), inset 0 0 15px rgba(168, 85, 247, 0.1);
   }
 }
 
-.service-card, .login-card {
+.service-card,
+.login-card {
   background: linear-gradient(-45deg, rgba(13, 21, 38, 0.95), rgba(23, 35, 59, 0.95), rgba(30, 17, 42, 0.95), rgba(13, 30, 46, 0.95)) !important;
   background-size: 300% 300% !important;
   animation: gradientBgShift 8s ease infinite, borderGlowPulse 4s ease-in-out infinite !important;
@@ -1340,7 +1352,8 @@ textarea {
   box-shadow: 0 14px 35px rgba(249, 115, 22, 0.35) !important;
 }
 
-.modal-box, .card {
+.modal-box,
+.card {
   background: linear-gradient(-45deg, #0d1526, #162238, #1c1328, #0f1f30) !important;
   background-size: 300% 300% !important;
   animation: gradientBgShift 9s ease infinite, borderGlowPulse 5s ease-in-out infinite !important;
@@ -1368,4 +1381,145 @@ textarea {
 .btn-nav-animated-gradient:hover {
   transform: translateY(-3px) scale(1.05) !important;
   box-shadow: 0 8px 25px rgba(234, 88, 12, 0.7) !important;
+}
+
+/* ===== DISTINCT ANIMATED GRADIENT ORDER & BOOKING GUIDE SECTION ===== */
+.guide-section-distinct {
+  padding: 5rem 1.5rem;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+/* Main Outer Box with Moving Multi-Color Gradient Border & Mesh */
+.guide-box-distinct {
+  position: relative;
+  border-radius: 24px;
+  padding: 3.5rem 2.25rem;
+  overflow: hidden;
+  background: linear-gradient(135deg, #070e1c 0%, #150e26 35%, #06192a 70%, #1a0c24 100%) !important;
+  background-size: 400% 400% !important;
+  animation: guideMeshShift 12s ease infinite !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(249, 115, 22, 0.08);
+}
+
+.guide-box-distinct::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 26px;
+  padding: 2px;
+  background: linear-gradient(90deg, #f97316, #9333ea, #06b6d4, #10b981, #f59e0b, #f97316);
+  background-size: 400% 100%;
+  animation: guideBorderShift 6s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes guideMeshShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes guideBorderShift {
+  0% { background-position: 0% center; }
+  100% { background-position: 400% center; }
+}
+
+/* Shifting Text Gradient */
+.gradient-text-distinct {
+  background: linear-gradient(135deg, #ff7e36 0%, #c084fc 35%, #38bdf8 70%, #34d399 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: guideTextGlow 6s linear infinite;
+}
+
+@keyframes guideTextGlow {
+  0% { background-position: 0% center; }
+  100% { background-position: 300% center; }
+}
+
+/* Steps Layout Grid */
+.guide-grid-distinct {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1.5rem;
+  position: relative;
+  z-index: 2;
+  margin-top: 2.5rem;
+}
+
+/* Distinct Step Card - Glassmorphism & Unique Hover Effect */
+.guide-card-glass {
+  position: relative;
+  background: rgba(15, 23, 42, 0.72) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  padding: 1.85rem 1.35rem 1.6rem !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  z-index: 1;
+}
+
+.guide-card-glass:hover {
+  transform: translateY(-10px) scale(1.02) !important;
+  background: rgba(23, 32, 54, 0.85) !important;
+  border-color: rgba(249, 115, 22, 0.5) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 25px rgba(249, 115, 22, 0.25) !important;
+}
+
+/* Top Accent Line for Each Card */
+.guide-card-accent-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-size: 200% 100%;
+  animation: guideBorderShift 4s linear infinite;
+}
+
+/* Step Number Badge */
+.guide-num-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* CTA Banner inside Guide Section */
+.guide-cta-distinct {
+  margin-top: 3.5rem;
+  padding: 2rem 2.25rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(147, 51, 234, 0.15) 50%, rgba(6, 182, 212, 0.15) 100%) !important;
+  border: 1px solid rgba(249, 115, 22, 0.35) !important;
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }

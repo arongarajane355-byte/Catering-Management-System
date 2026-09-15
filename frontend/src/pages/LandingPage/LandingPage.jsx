@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Utensils, Calendar, Truck, Wine, Package, ChevronRight,
   Sparkles, UtensilsCrossed, ArrowRight, Star, UserPlus,
-  X, CheckCircle2, AlertCircle, Eye, EyeOff, Copy, Check
+  X, CheckCircle2, AlertCircle, Eye, EyeOff, Copy, Check, FileText
 } from 'lucide-react';
 
 const getCategoryIcon = (name) => {
@@ -542,6 +542,9 @@ const LandingPage = () => {
           <a href="#catalog" className="btn-nav-animated-gradient">
             ✨ Services
           </a>
+          <a href="#booking-guide" className="btn-nav-animated-gradient">
+            📋 How to Book
+          </a>
           {user ? (
             <button
               onClick={() => navigate(`/${user.role}`)}
@@ -787,6 +790,122 @@ const LandingPage = () => {
             })}
           </div>
         )}
+      </section>
+
+      {/* ── DISTINCT ENGLISH STEP-BY-STEP BOOKING GUIDE ─────────── */}
+      <section id="booking-guide" className="guide-section-distinct">
+        <div className="guide-box-distinct">
+          {/* Decorative Ambient Background Glows */}
+          <div style={{
+            position: 'absolute', top: '-100px', left: '-100px', width: '300px', height: '300px',
+            background: 'radial-gradient(circle, rgba(249, 115, 22, 0.28) 0%, transparent 70%)',
+            pointerEvents: 'none', filter: 'blur(50px)', zIndex: 0
+          }} />
+          <div style={{
+            position: 'absolute', bottom: '-100px', right: '-100px', width: '300px', height: '300px',
+            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.28) 0%, transparent 70%)',
+            pointerEvents: 'none', filter: 'blur(50px)', zIndex: 0
+          }} />
+
+          {/* Section Header */}
+          <div style={{ textAlign: 'center', marginBottom: '3.5rem', position: 'relative', zIndex: 2 }}>
+            <div className="hero-tag" style={{ margin: '0 auto 1.25rem', display: 'inline-flex', padding: '0.4rem 1.1rem' }}>
+              <Sparkles size={14} />
+              <span>Simple 4-Step Customer Booking Workflow</span>
+            </div>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontSize: 'clamp(1.85rem, 4vw, 2.65rem)',
+              fontWeight: 800, marginBottom: '0.85rem', color: '#ffffff', letterSpacing: '-0.02em'
+            }}>
+              How to Book Your Catering Event <span className="gradient-text-distinct">(Step-by-Step)</span>
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.98rem', maxWidth: '680px', margin: '0 auto', lineHeight: 1.65 }}>
+              Follow these straightforward steps to request catering packages or equipment rentals for your special celebration.
+            </p>
+          </div>
+
+          {/* Steps Grid */}
+          <div className="guide-grid-distinct">
+            {[
+              {
+                step: '01',
+                title: 'Browse Services',
+                subtitle: 'Select Menus & Equipment',
+                desc: 'Explore our rich buffet menus, curated dish packages, and party equipment rental solutions tailored for your event.',
+                icon: <Utensils size={22} />,
+                accentColor: '#38bdf8',
+                gradient: 'linear-gradient(90deg, #0284c7, #38bdf8)'
+              },
+              {
+                step: '02',
+                title: 'Event Customization',
+                subtitle: 'Set Date & Venue Location',
+                desc: 'Specify your event date, exact venue address, guest headcount, and special dietary or service preferences.',
+                icon: <Calendar size={22} />,
+                accentColor: '#c084fc',
+                gradient: 'linear-gradient(90deg, #9333ea, #c084fc)'
+              },
+              {
+                step: '03',
+                title: 'Instant Quotation',
+                subtitle: 'Admin Review & Pricing',
+                desc: 'Our staff reviews your reservation details, confirms schedule availability, and provides an official price quotation.',
+                icon: <FileText size={22} />,
+                accentColor: '#fbbf24',
+                gradient: 'linear-gradient(90deg, #f59e0b, #fbbf24)'
+              },
+              {
+                step: '04',
+                title: 'Grand Celebration',
+                subtitle: 'On-Site Delivery & Service',
+                desc: 'Relax and enjoy your event! Our professional catering crew handles food preparation, delivery, setup, and service.',
+                icon: <Sparkles size={22} />,
+                accentColor: '#34d399',
+                gradient: 'linear-gradient(90deg, #10b981, #34d399)'
+              }
+            ].map((s) => (
+              <div key={s.step} className="guide-card-glass">
+                {/* Distinct Top Accent Bar */}
+                <div className="guide-card-accent-bar" style={{ background: s.gradient }} />
+
+                {/* Step Badge */}
+                <div className="guide-num-badge" style={{ background: s.gradient }}>
+                  {s.step}
+                </div>
+
+                {/* Step Icon */}
+                <div style={{
+                  width: 46, height: 46, borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: `1px solid ${s.accentColor}44`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: s.accentColor, marginBottom: '1rem',
+                  boxShadow: `0 4px 16px ${s.accentColor}25`
+                }}>
+                  {s.icon}
+                </div>
+
+                <h3 style={{
+                  fontFamily: 'var(--font-display)', fontSize: '1.08rem',
+                  fontWeight: 700, color: '#ffffff', marginBottom: '0.25rem'
+                }}>
+                  {s.title}
+                </h3>
+
+                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: s.accentColor, marginBottom: '0.65rem' }}>
+                  {s.subtitle}
+                </div>
+
+                <p style={{
+                  fontSize: '0.83rem', color: 'var(--text-muted)',
+                  lineHeight: 1.58, margin: 0
+                }}>
+                  {s.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── FOOTER ──────────────────────────────────── */}
