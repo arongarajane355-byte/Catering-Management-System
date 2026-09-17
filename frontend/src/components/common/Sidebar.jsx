@@ -3,33 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   UtensilsCrossed, LayoutDashboard, Calendar, UserCheck, Settings,
-  Users, ShieldCheck, ShoppingBag, BarChart3, LogOut, Layers,
-  Flame, CheckSquare
+  Users, ShieldCheck, ShoppingBag, BarChart3, LogOut, Layers
 } from 'lucide-react';
 import cmsLogo from '../../assets/cms_logo.png';
 
 const navsByRole = {
   customer: [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { key: 'event_tracker', label: 'Event Tracker & Prep', icon: CheckSquare },
     { key: 'bookings', label: 'My Bookings', icon: Calendar },
     { key: 'profile',  label: 'Profile Settings', icon: Settings },
   ],
   staff: [
-    { key: 'overview',      label: 'Overview',         icon: LayoutDashboard },
-    { key: 'event_workflow', label: 'Event Lifecycle & Prep', icon: Flame },
-    { key: 'bookings',      label: 'Bookings Queue',   icon: Calendar },
-    { key: 'add_customer',  label: 'Add Customer',     icon: Users },
+    { key: 'overview',      label: 'Overview',             icon: LayoutDashboard },
+    { key: 'bookings',      label: 'Bookings Queue',       icon: Calendar },
+    { key: 'add_customer',  label: 'Add Customer',         icon: Users },
     { key: 'encoded_list',  label: 'Verification Tracker', icon: UserCheck },
-    { key: 'profile',       label: 'Profile Settings', icon: Settings },
+    { key: 'financial',     label: 'Financial Report',     icon: BarChart3 },
+    { key: 'profile',       label: 'Profile Settings',     icon: Settings },
   ],
   admin: [
     { key: 'overview',      label: 'Overview',         icon: LayoutDashboard },
-    { key: 'event_workflow', label: 'Event Lifecycle & Prep', icon: Flame },
     { key: 'verifications', label: 'Verifications',    icon: ShieldCheck },
     { key: 'users',         label: 'Users Management', icon: Users },
     { key: 'services',      label: 'Service Catalog',  icon: ShoppingBag },
-    { key: 'reports',       label: 'Financial Reports', icon: BarChart3 },
     { key: 'profile',       label: 'Profile Settings', icon: Settings },
   ],
 };

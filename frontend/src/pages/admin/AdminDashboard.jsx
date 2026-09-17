@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Sidebar from '../../components/common/Sidebar';
-import EventWorkflowManagement from '../../components/workflow/EventWorkflowManagement';
 import ProfileSettings from '../../components/common/ProfileSettings';
 import {
   ShieldCheck, UserCheck, Users, DollarSign, Calendar, AlertCircle,
@@ -16,7 +15,6 @@ const AdminDashboard = () => {
   const [usersList, setUsersList] = useState([]);
   const [categories, setCategories] = useState([]);
   const [services, setServices] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // View User Details Modal Target
@@ -60,19 +58,12 @@ const AdminDashboard = () => {
   const [svcPage, setSvcPage] = useState(1);
   const SVC_PAGE_SIZE = 8;
 
-  // Search / Filter — Payments Ledger
-  const [paySearch, setPaySearch] = useState('');
-  const [payMethodFilter, setPayMethodFilter] = useState('all');
-  const [payPage, setPayPage] = useState(1);
-  const PAY_PAGE_SIZE = 8;
-
   useEffect(() => {
     fetchAdminSummary();
     fetchPendingVerifications();
     fetchUsersList();
     fetchCategories();
     fetchServices();
-    fetchPayments();
   }, []);
 
   const fetchAdminSummary = async () => {
@@ -122,14 +113,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const fetchPayments = async () => {
-    try {
-      const res = await api.get('/payments');
-      setPayments(res.data);
-    } catch (err) {
-      console.error('Failed to load payments', err);
-    }
-  };
+
 
   const handleVerifyAccountSubmit = async (e) => {
     e.preventDefault();
@@ -362,7 +346,7 @@ const AdminDashboard = () => {
                 )}
               </div>
 
-              <div className="grid-3">
+              <div className="grid-2">
                 <div className="card p-6">
                   <h3 className="section-title mb-2">Users Management</h3>
                   <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
@@ -382,23 +366,8 @@ const AdminDashboard = () => {
                     View Catalog ({services.length})
                   </button>
                 </div>
-
-                <div className="card p-6">
-                  <h3 className="section-title mb-2">Financial Ledger</h3>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                    Audit payments recorded by staff, reference numbers, and total revenue logs.
-                  </p>
-                  <button onClick={() => setActiveTab('reports')} className="btn btn-secondary btn-sm">
-                    View Financial Audit
-                  </button>
-                </div>
               </div>
             </div>
-          )}
-
-          {/* Tab: Event Lifecycle & Preparation Workflow */}
-          {activeTab === 'event_workflow' && (
-            <EventWorkflowManagement />
           )}
 
           {/* Tab: Pending Verifications */}
@@ -736,91 +705,7 @@ const AdminDashboard = () => {
             );
           })()}
 
-          {/* Tab: Reports & Payments Ledger */}
-          {activeTab === 'reports' && (() => {
-            const filteredPay = payments.filter(p => {
-              const matchSearch = `${p.customer_firstname} ${p.customer_lastname} ${p.reference_no || ''}`.toLowerCase().includes(paySearch.toLowerCase());
-              const matchMethod = payMethodFilter === 'all' || p.payment_method === payMethodFilter;
-              return matchSearch && matchMethod;
-            });
-            const payTotalPages = Math.max(1, Math.ceil(filteredPay.length / PAY_PAGE_SIZE));
-            const payPageSafe = Math.min(payPage, payTotalPages);
-            const pagedPay = filteredPay.slice((payPageSafe - 1) * PAY_PAGE_SIZE, payPageSafe * PAY_PAGE_SIZE);
-            return (
-            <div className="card p-6">
-              <div className="section-header">
-                <h3 className="section-title">Global Payment Ledger & Transactions Audit</h3>
-              </div>
-              {/* Search & Filters */}
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
-                  <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    className="form-input"
-                    style={{ paddingLeft: '2.25rem' }}
-                    placeholder="Search by customer name or reference no…"
-                    value={paySearch}
-                    onChange={e => { setPaySearch(e.target.value); setPayPage(1); }}
-                  />
-                </div>
-                <select className="form-select" style={{ width: 'auto' }} value={payMethodFilter} onChange={e => { setPayMethodFilter(e.target.value); setPayPage(1); }}>
-                  <option value="all">All Methods</option>
-                  <option value="cash">Cash</option>
-                  <option value="gcash">GCash</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="card">Card</option>
-                </select>
-              </div>
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Payment ID</th>
-                      <th>Booking ID</th>
-                      <th>Customer Name</th>
-                      <th>Amount Paid</th>
-                      <th>Method</th>
-                      <th>Ref No.</th>
-                      <th>Recorded By</th>
-                      <th>Payment Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedPay.length === 0 ? (
-                      <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No payment records found.</td></tr>
-                    ) : pagedPay.map((p) => (
-                      <tr key={p.payment_id}>
-                        <td>#PAY-{p.payment_id}</td>
-                        <td>#BK-{p.booking_id}</td>
-                        <td>{p.customer_firstname} {p.customer_lastname}</td>
-                        <td style={{ color: 'var(--success)', fontWeight: 700 }}>
-                          +₱{parseFloat(p.amount_paid).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td><span className="badge badge-pending">{p.payment_method.toUpperCase()}</span></td>
-                        <td>{p.reference_no || '—'}</td>
-                        <td>{p.recorded_by_firstname} {p.recorded_by_lastname}</td>
-                        <td>{new Date(p.payment_date).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* Pagination */}
-              {payTotalPages > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  <span>Showing {(payPageSafe - 1) * PAY_PAGE_SIZE + 1}–{Math.min(payPageSafe * PAY_PAGE_SIZE, filteredPay.length)} of {filteredPay.length} payments</span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setPayPage(p => Math.max(1, p - 1))} disabled={payPageSafe === 1}><ChevronLeft size={16} /></button>
-                    {Array.from({ length: payTotalPages }, (_, i) => i + 1).map(pg => (
-                      <button key={pg} onClick={() => setPayPage(pg)} className={`btn btn-sm ${pg === payPageSafe ? 'btn-primary' : 'btn-ghost'}`}>{pg}</button>
-                    ))}
-                    <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setPayPage(p => Math.min(payTotalPages, p + 1))} disabled={payPageSafe === payTotalPages}><ChevronRight size={16} /></button>
-                  </div>
-                </div>
-              )}
-            </div>
-            );
-          })()}
+
 
           {/* Tab: Profile Settings */}
           {activeTab === 'profile' && (

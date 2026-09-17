@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Sidebar from '../../components/common/Sidebar';
-import EventWorkflowManagement from '../../components/workflow/EventWorkflowManagement';
 import ProfileSettings from '../../components/common/ProfileSettings';
 import {
   UserPlus, Clock, Calendar, CheckSquare, DollarSign, Eye, EyeOff,
   CheckCircle2, ShieldAlert, X, AlertCircle, Search, ChevronLeft, ChevronRight,
-  ShieldCheck, Copy, KeyRound
+  ShieldCheck, Copy, KeyRound, BarChart3, Receipt, CreditCard
 } from 'lucide-react';
 
 // ---------- ADD CUSTOMER MODAL & FORM (SAME DESIGN & LOGIC AS LANDINGPAGE REGISTRATION MODAL) ----------
@@ -371,6 +370,7 @@ const StaffDashboard = () => {
   const [dashboardData, setDashboardData] = useState({ pending_accounts: 0, assigned_bookings: 0, upcoming_events: [] });
   const [createdCustomers, setCreatedCustomers] = useState([]);
   const [bookingsQueue, setBookingsQueue] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modal State
@@ -381,6 +381,21 @@ const StaffDashboard = () => {
   const [bqStatusFilter, setBqStatusFilter] = useState('all');
   const [bqPage, setBqPage] = useState(1);
   const BQ_PAGE_SIZE = 8;
+
+  // Financial Report sub-tab
+  const [finSubTab, setFinSubTab] = useState('billing');
+
+  // Search / Filter / Pagination — Financial Billing
+  const [bilSearch, setBilSearch] = useState('');
+  const [bilStatusFilter, setBilStatusFilter] = useState('all');
+  const [bilPage, setBilPage] = useState(1);
+  const BIL_PAGE_SIZE = 8;
+
+  // Search / Filter / Pagination — Financial Payments
+  const [paySearch, setPaySearch] = useState('');
+  const [payMethodFilter, setPayMethodFilter] = useState('all');
+  const [payPage, setPayPage] = useState(1);
+  const PAY_PAGE_SIZE = 8;
 
   // Search / Filter — Encoded Customers
   const [encSearch, setEncSearch] = useState('');
@@ -407,6 +422,7 @@ const StaffDashboard = () => {
     fetchStaffDashboard();
     fetchCreatedCustomers();
     fetchBookingsQueue();
+    fetchPayments();
   }, []);
 
   const handleVerifyAccountSubmit = async (e) => {
@@ -476,6 +492,15 @@ const StaffDashboard = () => {
       setBookingsQueue(res.data);
     } catch (err) {
       console.error('Failed to load bookings queue', err);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      const res = await api.get('/payments');
+      setPayments(res.data);
+    } catch (err) {
+      console.error('Failed to load payments', err);
     }
   };
 
@@ -649,10 +674,7 @@ const StaffDashboard = () => {
             </div>
           )}
 
-          {/* Tab: Event Lifecycle & Preparation Workflow */}
-          {activeTab === 'event_workflow' && (
-            <EventWorkflowManagement />
-          )}
+
 
           {/* Tab: Bookings Queue */}
           {activeTab === 'bookings' && (() => {
@@ -904,6 +926,272 @@ const StaffDashboard = () => {
                 </table>
               </div>
             </div>
+            );
+          })()}
+
+          {/* Tab: Financial Report — Billing & Payments */}
+          {activeTab === 'financial' && (() => {
+            // ── Billing (bookings view with balance computation) ────────────
+            const billingData = bookingsQueue.map(b => {
+              const bkPayments = payments.filter(p => p.booking_id === b.booking_id);
+              const totalPaid = bkPayments.reduce((sum, p) => sum + parseFloat(p.amount_paid || 0), 0);
+              const balance = parseFloat(b.total_amount || 0) - totalPaid;
+              return { ...b, total_paid: totalPaid, balance: balance < 0 ? 0 : balance };
+            });
+            const filteredBil = billingData.filter(b => {
+              const matchSearch = `${b.customer_firstname} ${b.customer_lastname} BK-${b.booking_id}`.toLowerCase().includes(bilSearch.toLowerCase());
+              const matchStatus = bilStatusFilter === 'all' || b.status === bilStatusFilter;
+              return matchSearch && matchStatus;
+            });
+            const bilTotalPages = Math.max(1, Math.ceil(filteredBil.length / BIL_PAGE_SIZE));
+            const bilPageSafe = Math.min(bilPage, bilTotalPages);
+            const pagedBil = filteredBil.slice((bilPageSafe - 1) * BIL_PAGE_SIZE, bilPageSafe * BIL_PAGE_SIZE);
+
+            // ── Payments view ─────────────────────────────────────────────
+            const filteredPay = payments.filter(p => {
+              const matchSearch = `${p.customer_firstname} ${p.customer_lastname} ${p.reference_no || ''}`.toLowerCase().includes(paySearch.toLowerCase());
+              const matchMethod = payMethodFilter === 'all' || p.payment_method === payMethodFilter;
+              return matchSearch && matchMethod;
+            });
+            const payTotalPages = Math.max(1, Math.ceil(filteredPay.length / PAY_PAGE_SIZE));
+            const payPageSafe = Math.min(payPage, payTotalPages);
+            const pagedPay = filteredPay.slice((payPageSafe - 1) * PAY_PAGE_SIZE, payPageSafe * PAY_PAGE_SIZE);
+
+            // ── Summary stats ─────────────────────────────────────────────
+            const totalRevenue = payments.reduce((sum, p) => sum + parseFloat(p.amount_paid || 0), 0);
+            const totalBilled = bookingsQueue.reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0);
+            const totalBalance = totalBilled - totalRevenue;
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Section Header */}
+                <div className="section-header">
+                  <div>
+                    <h1 className="section-title" style={{ fontSize: '1.5rem' }}>Financial Report</h1>
+                    <p className="section-subtitle">Billing overview and payment collection records</p>
+                  </div>
+                  <button onClick={() => { fetchBookingsQueue(); fetchPayments(); }} className="btn btn-secondary btn-sm">
+                    ↻ Refresh
+                  </button>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <div className="stat-icon stat-icon-amber"><Receipt size={22} /></div>
+                    <div>
+                      <div className="stat-value">₱{totalBilled.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                      <div className="stat-label">Total Billed</div>
+                    </div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-icon stat-icon-green"><DollarSign size={22} /></div>
+                    <div>
+                      <div className="stat-value">₱{totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                      <div className="stat-label">Total Collected</div>
+                    </div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-icon stat-icon-orange"><CreditCard size={22} /></div>
+                    <div>
+                      <div className="stat-value">₱{totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                      <div className="stat-label">Outstanding Balance</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-tab Switcher */}
+                <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '2px solid var(--border)', paddingBottom: '0' }}>
+                  <button
+                    onClick={() => setFinSubTab('billing')}
+                    style={{
+                      padding: '0.5rem 1.25rem', border: 'none', background: 'none', cursor: 'pointer',
+                      fontWeight: finSubTab === 'billing' ? 700 : 400,
+                      color: finSubTab === 'billing' ? 'var(--brand)' : 'var(--text-muted)',
+                      borderBottom: finSubTab === 'billing' ? '2px solid var(--brand)' : '2px solid transparent',
+                      marginBottom: '-2px', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+                    }}
+                  >
+                    <Receipt size={15} /> Billing
+                  </button>
+                  <button
+                    onClick={() => setFinSubTab('payments')}
+                    style={{
+                      padding: '0.5rem 1.25rem', border: 'none', background: 'none', cursor: 'pointer',
+                      fontWeight: finSubTab === 'payments' ? 700 : 400,
+                      color: finSubTab === 'payments' ? 'var(--brand)' : 'var(--text-muted)',
+                      borderBottom: finSubTab === 'payments' ? '2px solid var(--brand)' : '2px solid transparent',
+                      marginBottom: '-2px', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+                    }}
+                  >
+                    <CreditCard size={15} /> Payments
+                  </button>
+                </div>
+
+                {/* ── BILLING SUB-TAB ────────────────────────────────────── */}
+                {finSubTab === 'billing' && (
+                  <div className="card p-6">
+                    <div className="section-header">
+                      <h3 className="section-title">Booking Billing Summary</h3>
+                    </div>
+                    {/* Search & Filter */}
+                    <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                      <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+                        <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                          className="form-input"
+                          style={{ paddingLeft: '2.25rem' }}
+                          placeholder="Search by customer or booking ID…"
+                          value={bilSearch}
+                          onChange={e => { setBilSearch(e.target.value); setBilPage(1); }}
+                        />
+                      </div>
+                      <select className="form-select" style={{ width: 'auto' }} value={bilStatusFilter} onChange={e => { setBilStatusFilter(e.target.value); setBilPage(1); }}>
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="preparing">Preparing</option>
+                        <option value="on_the_way">On the Way</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
+                    <div className="table-wrap">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Booking ID</th>
+                            <th>Customer</th>
+                            <th>Event Type</th>
+                            <th>Event Date</th>
+                            <th>Status</th>
+                            <th>Total Billed</th>
+                            <th>Amount Paid</th>
+                            <th>Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagedBil.length === 0 ? (
+                            <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No billing records found.</td></tr>
+                          ) : pagedBil.map((b) => (
+                            <tr key={b.booking_id}>
+                              <td><strong>#BK-{b.booking_id}</strong></td>
+                              <td>{b.customer_firstname} {b.customer_lastname}</td>
+                              <td>{b.event_type}</td>
+                              <td style={{ fontSize: '0.85rem' }}>{new Date(b.event_date).toLocaleDateString()}</td>
+                              <td>
+                                <span className={`badge badge-${b.status}`}>
+                                  {b.status.replace(/_/g, ' ')}
+                                </span>
+                              </td>
+                              <td style={{ color: 'var(--amber)', fontWeight: 600 }}>
+                                ₱{parseFloat(b.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td style={{ color: 'var(--success)', fontWeight: 600 }}>
+                                ₱{b.total_paid.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td style={{ color: b.balance > 0 ? 'var(--danger, #ef4444)' : 'var(--text-muted)', fontWeight: b.balance > 0 ? 700 : 400 }}>
+                                ₱{b.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Pagination */}
+                    {bilTotalPages > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        <span>Showing {(bilPageSafe - 1) * BIL_PAGE_SIZE + 1}–{Math.min(bilPageSafe * BIL_PAGE_SIZE, filteredBil.length)} of {filteredBil.length} records</span>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBilPage(p => Math.max(1, p - 1))} disabled={bilPageSafe === 1}><ChevronLeft size={16} /></button>
+                          {Array.from({ length: bilTotalPages }, (_, i) => i + 1).map(pg => (
+                            <button key={pg} onClick={() => setBilPage(pg)} className={`btn btn-sm ${pg === bilPageSafe ? 'btn-primary' : 'btn-ghost'}`}>{pg}</button>
+                          ))}
+                          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBilPage(p => Math.min(bilTotalPages, p + 1))} disabled={bilPageSafe === bilTotalPages}><ChevronRight size={16} /></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── PAYMENTS SUB-TAB ───────────────────────────────────── */}
+                {finSubTab === 'payments' && (
+                  <div className="card p-6">
+                    <div className="section-header">
+                      <h3 className="section-title">Payment Collection Records</h3>
+                    </div>
+                    {/* Search & Filters */}
+                    <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                      <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+                        <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                          className="form-input"
+                          style={{ paddingLeft: '2.25rem' }}
+                          placeholder="Search by customer or reference no…"
+                          value={paySearch}
+                          onChange={e => { setPaySearch(e.target.value); setPayPage(1); }}
+                        />
+                      </div>
+                      <select className="form-select" style={{ width: 'auto' }} value={payMethodFilter} onChange={e => { setPayMethodFilter(e.target.value); setPayPage(1); }}>
+                        <option value="all">All Methods</option>
+                        <option value="cash">Cash</option>
+                        <option value="gcash">GCash</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                        <option value="card">Card</option>
+                      </select>
+                    </div>
+                    <div className="table-wrap">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Payment ID</th>
+                            <th>Booking ID</th>
+                            <th>Customer Name</th>
+                            <th>Event Type</th>
+                            <th>Amount Paid</th>
+                            <th>Method</th>
+                            <th>Ref No.</th>
+                            <th>Recorded By</th>
+                            <th>Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagedPay.length === 0 ? (
+                            <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No payment records found.</td></tr>
+                          ) : pagedPay.map((p) => (
+                            <tr key={p.payment_id}>
+                              <td><strong>#PAY-{p.payment_id}</strong></td>
+                              <td>#BK-{p.booking_id}</td>
+                              <td>{p.customer_firstname} {p.customer_lastname}</td>
+                              <td style={{ fontSize: '0.85rem' }}>{p.event_type}</td>
+                              <td style={{ color: 'var(--success)', fontWeight: 700 }}>
+                                +₱{parseFloat(p.amount_paid).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td><span className="badge badge-pending">{p.payment_method.toUpperCase()}</span></td>
+                              <td>{p.reference_no || '—'}</td>
+                              <td>{p.recorded_by_firstname} {p.recorded_by_lastname}</td>
+                              <td style={{ fontSize: '0.8rem' }}>{new Date(p.payment_date).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Pagination */}
+                    {payTotalPages > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        <span>Showing {(payPageSafe - 1) * PAY_PAGE_SIZE + 1}–{Math.min(payPageSafe * PAY_PAGE_SIZE, filteredPay.length)} of {filteredPay.length} payments</span>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setPayPage(p => Math.max(1, p - 1))} disabled={payPageSafe === 1}><ChevronLeft size={16} /></button>
+                          {Array.from({ length: payTotalPages }, (_, i) => i + 1).map(pg => (
+                            <button key={pg} onClick={() => setPayPage(pg)} className={`btn btn-sm ${pg === payPageSafe ? 'btn-primary' : 'btn-ghost'}`}>{pg}</button>
+                          ))}
+                          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setPayPage(p => Math.min(payTotalPages, p + 1))} disabled={payPageSafe === payTotalPages}><ChevronRight size={16} /></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             );
           })()}
 
