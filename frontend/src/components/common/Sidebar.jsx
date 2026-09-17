@@ -11,28 +11,29 @@ const navsByRole = {
   customer: [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
     { key: 'bookings', label: 'My Bookings', icon: Calendar },
-    { key: 'profile',  label: 'Profile Settings', icon: Settings },
+    { key: 'profile', label: 'Profile Settings', icon: Settings },
   ],
   staff: [
-    { key: 'overview',      label: 'Overview',             icon: LayoutDashboard },
-    { key: 'bookings',      label: 'Bookings Queue',       icon: Calendar },
-    { key: 'add_customer',  label: 'Add Customer',         icon: Users },
-    { key: 'encoded_list',  label: 'Verification Tracker', icon: UserCheck },
-    { key: 'financial',     label: 'Financial Report',     icon: BarChart3 },
-    { key: 'profile',       label: 'Profile Settings',     icon: Settings },
+    { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { key: 'bookings', label: 'Bookings Queue', icon: Calendar },
+    { key: 'add_customer', label: 'Add Customer', icon: Users },
+    { key: 'encoded_list', label: 'Verification Tracker', icon: UserCheck },
+    { key: 'financial', label: 'Financial Report', icon: BarChart3 },
+    { key: 'profile', label: 'Profile Settings', icon: Settings },
   ],
   admin: [
-    { key: 'overview',      label: 'Overview',         icon: LayoutDashboard },
-    { key: 'verifications', label: 'Verifications',    icon: ShieldCheck },
-    { key: 'users',         label: 'Users Management', icon: Users },
-    { key: 'services',      label: 'Service Catalog',  icon: ShoppingBag },
-    { key: 'profile',       label: 'Profile Settings', icon: Settings },
+    { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+    { key: 'reports', label: 'Reports & Monitoring', icon: BarChart3 },
+    { key: 'verifications', label: 'Verifications', icon: ShieldCheck },
+    { key: 'users', label: 'Users Management', icon: Users },
+    { key: 'services', label: 'Service Catalog', icon: ShoppingBag },
+    { key: 'profile', label: 'Profile Settings', icon: Settings },
   ],
 };
 
 const roleColors = {
-  admin:    { bg: 'var(--brand-dim)', color: 'var(--brand)' },
-  staff:    { bg: 'var(--info-dim)',  color: 'var(--info)' },
+  admin: { bg: 'var(--brand-dim)', color: 'var(--brand)' },
+  staff: { bg: 'var(--info-dim)', color: 'var(--info)' },
   customer: { bg: 'var(--success-dim)', color: 'var(--success)' },
 };
 

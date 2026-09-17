@@ -541,7 +541,7 @@ const StaffDashboard = () => {
 
       <main className="main-area">
         <header className="topbar">
-          <div className="topbar-title">Staff Operations Portal</div>
+          <div className="topbar-title"></div>
         </header>
 
         <div className="page-content">
