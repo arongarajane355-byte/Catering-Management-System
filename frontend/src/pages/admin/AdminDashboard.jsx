@@ -1401,6 +1401,7 @@ const AdminDashboard = () => {
                     <thead>
                       <tr>
                         <th>Service ID</th>
+                        <th>Picture</th>
                         <th>Category</th>
                         <th>Service Name</th>
                         <th>Description</th>
@@ -1411,10 +1412,22 @@ const AdminDashboard = () => {
                     </thead>
                     <tbody>
                       {pagedSvc.length === 0 ? (
-                        <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No services found.</td></tr>
+                        <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No services found.</td></tr>
                       ) : pagedSvc.map((srv) => (
                         <tr key={srv.service_id}>
                           <td>#SRV-{srv.service_id}</td>
+                          <td>
+                            <img
+                              className="service-catalog-thumb"
+                              src={srv.image_url || 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=160&q=80'}
+                              alt={`${srv.service_name} package`}
+                              loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = 'https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=160&q=80';
+                              }}
+                            />
+                          </td>
                           <td><span className="badge badge-pending">{srv.category_name}</span></td>
                           <td><strong>{srv.service_name}</strong></td>
                           <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{srv.description}</td>

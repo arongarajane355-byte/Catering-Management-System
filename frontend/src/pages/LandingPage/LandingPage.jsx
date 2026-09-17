@@ -689,32 +689,18 @@ const LandingPage = () => {
                           }}
                         >
                           {/* Photo Banner */}
-                          <div style={{
-                            position: 'relative',
-                            height: 170,
-                            width: '100%',
-                            overflow: 'hidden',
-                            background: 'var(--bg-elevated)'
-                          }}>
+                          <div className="service-card-media">
                             <img
                               src={serviceImg}
                               alt={service.service_name}
+                              loading="lazy"
                               onError={(e) => {
                                 e.target.onerror = null;
                                 e.target.src = fallbackImg;
                               }}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                transition: 'transform 0.4s ease'
-                              }}
+                              className="service-card-image"
                             />
-                            <div style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background: 'linear-gradient(to top, rgba(15,23,42,0.85) 0%, transparent 60%)'
-                            }} />
+                            <div className="service-card-image-shade" />
                             <span className="badge badge-active" style={{
                               position: 'absolute',
                               top: '0.625rem',
@@ -726,12 +712,7 @@ const LandingPage = () => {
                             }}>
                               Active
                             </span>
-                            <div style={{
-                              position: 'absolute',
-                              bottom: '0.625rem',
-                              left: '0.875rem',
-                              right: '0.875rem'
-                            }}>
+                            <div className="service-card-media-title">
                               <h4 style={{
                                 fontSize: '0.98rem', fontWeight: 700,
                                 color: '#ffffff', textShadow: '0 2px 4px rgba(0,0,0,0.6)',
@@ -743,7 +724,7 @@ const LandingPage = () => {
                           </div>
 
                           {/* Card Content Body */}
-                          <div style={{ padding: '1rem 1.125rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '0.75rem' }}>
+                          <div className="service-card-content">
                             {service.service_description && (
                               <p style={{
                                 fontSize: '0.8rem', color: 'var(--text-muted)',
@@ -753,11 +734,7 @@ const LandingPage = () => {
                               </p>
                             )}
 
-                            <div style={{
-                              display: 'flex', justifyContent: 'space-between',
-                              alignItems: 'center', borderTop: '1px solid var(--border)',
-                              paddingTop: '0.875rem', marginTop: 'auto'
-                            }}>
+                            <div className="service-card-footer">
                               <div>
                                 <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.1rem' }}>
                                   Base Price
@@ -774,8 +751,7 @@ const LandingPage = () => {
                                   e.stopPropagation();
                                   setSelectedServiceModal({ ...service, category_name: cat.category_name });
                                 }}
-                                className="btn btn-secondary btn-sm"
-                                style={{ borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                className="btn btn-secondary btn-sm service-card-view"
                               >
                                 View <ChevronRight size={13} />
                               </button>
