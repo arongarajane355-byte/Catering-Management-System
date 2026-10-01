@@ -1465,8 +1465,6 @@ const StaffDashboard = () => {
       {receiptModalData && (() => {
         const contractTotal = parseFloat(receiptModalData.booking_total || receiptModalData.total_amount || 0);
         const amountPaid = parseFloat(receiptModalData.amount_paid || 0);
-        const vatableSales = contractTotal > 0 ? (contractTotal / 1.12) : 0;
-        const vatAmount = contractTotal > 0 ? (contractTotal - vatableSales) : 0;
         const totalPaidToDate = receiptModalData.ledger ? parseFloat(receiptModalData.ledger.total_paid || 0) : amountPaid;
         const remainingBal = receiptModalData.ledger ? parseFloat(receiptModalData.ledger.remaining_balance || 0) : Math.max(0, contractTotal - amountPaid);
 
@@ -1605,28 +1603,6 @@ const StaffDashboard = () => {
                         </div>
                         <div style={{ fontSize: '0.68rem', color: '#4b5563', paddingLeft: '1.25rem', fontStyle: 'italic' }}>
                           Reservation: {receiptModalData.event_type || 'Catering Banquet'}
-                        </div>
-                      </div>
-
-                      <hr className="mall-receipt-divider" />
-
-                      {/* Philippine Mall POS Tax Breakdown (BIR Compliant Format) */}
-                      <div style={{ fontSize: '0.71rem', display: 'flex', flexDirection: 'column', gap: '0.15rem', color: '#374151' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>VATABLE SALES (12%):</span>
-                          <span>₱{vatableSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>VAT AMOUNT (12%):</span>
-                          <span>₱{vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>VAT-EXEMPT SALES:</span>
-                          <span>₱0.00</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>ZERO RATED SALES:</span>
-                          <span>₱0.00</span>
                         </div>
                       </div>
 
