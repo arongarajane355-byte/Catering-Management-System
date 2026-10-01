@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import Sidebar from '../../components/common/Sidebar';
 import ProfileSettings from '../../components/common/ProfileSettings';
+import AdminGraphReport from '../../components/admin/AdminGraphReport';
 import {
   ShieldCheck, UserCheck, Users, DollarSign, Calendar, AlertCircle,
   Plus, Check, X, Layers, ShoppingBag, CheckCircle2, Search, ChevronLeft, ChevronRight,
@@ -26,7 +27,7 @@ const AdminDashboard = () => {
   const [staffDetails, setStaffDetails] = useState({ encodedCustomers: [], staffPayments: [], staffBookings: [], staffLogs: [] });
   const [auditLogs, setAuditLogs] = useState([]);
 
-  const [repSubTab, setRepSubTab] = useState('bookings');
+  const [repSubTab, setRepSubTab] = useState('analytics');
   const [repSearch, setRepSearch] = useState('');
   const [repStatusFilter, setRepStatusFilter] = useState('all');
   const [repStaffFilter, setRepStaffFilter] = useState('all');
@@ -450,9 +451,21 @@ const AdminDashboard = () => {
                   <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
                     Monitor staff-encoded customer accounts, event status tracking, financial collections, and transaction audit trails.
                   </p>
-                  <button onClick={() => setActiveTab('reports')} className="btn btn-primary btn-sm">
-                    View Reports & Monitoring ({reportsBookings.length})
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => { setActiveTab('reports'); setRepSubTab('analytics'); }}
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                    >
+                      <BarChart3 size={14} /> View Graph Reports
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab('reports'); setRepSubTab('bookings'); }}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Bookings Feed ({reportsBookings.length})
+                    </button>
+                  </div>
                 </div>
 
                 <div className="card p-6">
@@ -561,6 +574,18 @@ const AdminDashboard = () => {
                 {/* Sub-tab Navigation */}
                 <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '2px solid var(--border)', paddingBottom: '0', flexWrap: 'wrap' }}>
                   <button
+                    onClick={() => setRepSubTab('analytics')}
+                    style={{
+                      padding: '0.6rem 1.25rem', border: 'none', background: 'none', cursor: 'pointer',
+                      fontWeight: repSubTab === 'analytics' ? 700 : 400,
+                      color: repSubTab === 'analytics' ? 'var(--brand)' : 'var(--text-muted)',
+                      borderBottom: repSubTab === 'analytics' ? '2px solid var(--brand)' : '2px solid transparent',
+                      marginBottom: '-2px', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+                    }}
+                  >
+                    <BarChart3 size={16} /> Graph Reports & Trends
+                  </button>
+                  <button
                     onClick={() => setRepSubTab('bookings')}
                     style={{
                       padding: '0.6rem 1.25rem', border: 'none', background: 'none', cursor: 'pointer',
@@ -609,6 +634,14 @@ const AdminDashboard = () => {
                     <UserCheck size={16} /> Staff-Encoded Reports Feed ({(staffDetails.encodedCustomers || []).length + (staffDetails.staffPayments || []).length + (staffDetails.staffBookings || []).length})
                   </button>
                 </div>
+
+                {/* Sub-Tab 0: Interactive Graph Reports & Trends */}
+                {repSubTab === 'analytics' && (
+                  <AdminGraphReport
+                    fallbackBookings={reportsBookings}
+                    fallbackTransactions={reportsTransactions}
+                  />
+                )}
 
                 {/* Sub-Tab 1: Bookings Status & Operational Report */}
                 {repSubTab === 'bookings' && (
@@ -1892,104 +1925,272 @@ const AdminDashboard = () => {
       )}
 
       {/* Modal: Official Transaction Audit Slip & Receipt Certificate */}
-      {selectedTxModal && (
-        <div className="modal-overlay" style={{ zIndex: 1000 }}>
-          <div className="modal-box" style={{ maxWidth: '600px', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)' }}>
-            <div className="modal-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                <div style={{ width: 38, height: 38, borderRadius: 'var(--r-lg)', background: 'var(--brand-dim)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Receipt size={20} />
+      {selectedTxModal && (() => {
+        const contractTotal = parseFloat(selectedTxModal.booking_total || selectedTxModal.total_amount || 0);
+        const amountPaid = parseFloat(selectedTxModal.amount_paid || 0);
+        const vatableSales = contractTotal > 0 ? (contractTotal / 1.12) : 0;
+        const vatAmount = contractTotal > 0 ? (contractTotal - vatableSales) : 0;
+        const cashierName = `${selectedTxModal.staff_firstname || selectedTxModal.recorded_by_firstname || 'Staff'} ${selectedTxModal.staff_lastname || selectedTxModal.recorded_by_lastname || ''}`.trim();
+
+        return (
+          <div className="modal-overlay" style={{ zIndex: 1000 }}>
+            <div className="modal-box" style={{ maxWidth: '440px', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)' }}>
+              <div className="modal-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'rgba(34, 197, 94, 0.12)', color: 'var(--success, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Receipt size={20} />
+                  </div>
+                  <div>
+                    <h3 className="modal-title" style={{ margin: 0, fontSize: '1.05rem' }}>Official Cash Register Receipt</h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                      Mall POS Terminal • Slip #PAY-{selectedTxModal.payment_id}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="modal-title" style={{ margin: 0 }}>Transaction Audit & Official Slip</h3>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-                    Payment Control No. #PAY-{selectedTxModal.payment_id}
-                  </p>
-                </div>
+                <button onClick={() => setSelectedTxModal(null)} className="btn btn-ghost btn-icon">
+                  <X size={18} />
+                </button>
               </div>
-              <button onClick={() => setSelectedTxModal(null)} className="btn btn-ghost btn-icon">
-                <X size={18} />
-              </button>
-            </div>
 
-            <div className="modal-body" style={{ paddingTop: '1.25rem' }}>
-              {/* Printable Certificate Frame */}
-              <div style={{
-                background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)',
-                padding: '1.25rem', marginBottom: '1.25rem', fontSize: '0.88rem'
-              }}>
-                {/* Header */}
-                <div style={{ textAlign: 'center', paddingBottom: '1rem', borderBottom: '1px dashed var(--border)', marginBottom: '1rem' }}>
-                  <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', margin: 0 }}>CaterMS Catering Management System</h4>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>OFFICIAL TRANSACTION & AUDIT SLIP</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--brand)', fontWeight: 600, marginTop: '0.2rem' }}>
-                    Date & Time: {new Date(selectedTxModal.payment_date).toLocaleString()}
-                  </div>
-                </div>
+              <div className="modal-body" style={{ paddingTop: '1rem', paddingBottom: '0.5rem' }}>
+                {/* Thermal Paper Roll Presentation */}
+                <div className="mall-receipt-wrapper">
+                  <div className="mall-receipt-paper">
+                    {/* Top Jagged / Serrated Paper Tear Edge */}
+                    <div style={{ width: '100%', height: '8px', overflow: 'hidden', lineHeight: 0, marginTop: '-1px' }}>
+                      <svg width="100%" height="8" viewBox="0 0 100 8" preserveAspectRatio="none" style={{ display: 'block' }}>
+                        <polygon points="0,8 2.5,0 5,8 7.5,0 10,8 12.5,0 15,8 17.5,0 20,8 22.5,0 25,8 27.5,0 30,8 32.5,0 35,8 37.5,0 40,8 42.5,0 45,8 47.5,0 50,8 52.5,0 55,8 57.5,0 60,8 62.5,0 65,8 67.5,0 70,8 72.5,0 75,8 77.5,0 80,8 82.5,0 85,8 87.5,0 90,8 92.5,0 95,8 97.5,0 100,8" fill="#ffffff" />
+                      </svg>
+                    </div>
 
-                {/* Section: Operator Accountability */}
-                <div style={{ marginBottom: '1rem', background: 'var(--bg-card)', padding: '0.75rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.25rem' }}>
-                    PROCESSED / RECORDED BY (STAFF ACCOUNTABILITY)
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-                    👤 {selectedTxModal.staff_firstname || selectedTxModal.recorded_by_firstname} {selectedTxModal.staff_lastname || selectedTxModal.recorded_by_lastname}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    User ID: #{selectedTxModal.recorded_by} | Role: Staff Cashier
-                  </div>
-                </div>
+                    <div className="mall-receipt-content">
+                      {/* Store / Mall Header */}
+                      <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+                        <div style={{ fontWeight: 900, fontSize: '0.98rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          CATERMS CATERING SERVICES
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#4b5563', textTransform: 'uppercase', marginTop: '0.1rem', fontWeight: 600 }}>
+                          MALL BANQUET &amp; EVENT HUB
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>
+                          4th Floor Central Pavilion, City Mall Complex
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>
+                          VAT REG TIN: 452-901-832-000
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>
+                          MIN: 240918-091823 • MACHINE SN: POS-0081
+                        </div>
+                      </div>
 
-                {/* Grid Details */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Customer Name</div>
-                    <div style={{ fontWeight: 600 }}>{selectedTxModal.customer_lastname}, {selectedTxModal.customer_firstname}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Event & Booking ID</div>
-                    <div style={{ fontWeight: 600 }}>#BK-{selectedTxModal.booking_id} ({selectedTxModal.event_type})</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Payment Method</div>
-                    <div><span className="badge badge-primary">{selectedTxModal.payment_method.toUpperCase()}</span></div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Reference / Control No.</div>
-                    <div style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedTxModal.reference_no || 'N/A (Cash)'}</div>
-                  </div>
-                </div>
+                      <div style={{ textAlign: 'center', fontWeight: 800, fontSize: '0.86rem', letterSpacing: '0.06em', margin: '0.4rem 0' }}>
+                        *** OFFICIAL SALES RECEIPT ***
+                      </div>
 
-                {/* Amount Paid Summary */}
-                <div style={{
-                  background: 'var(--brand-dim)', border: '1px solid var(--brand)', borderRadius: 'var(--r-md)',
-                  padding: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                }}>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Amount Paid in this Transaction</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--brand)' }}>
-                      ₱{parseFloat(selectedTxModal.amount_paid).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Register Transaction Meta */}
+                      <div style={{ fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>OR NO.</span>
+                          <strong style={{ fontFamily: 'monospace' }}>OR-{String(selectedTxModal.payment_id).padStart(6, '0')}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>DATE / TIME:</span>
+                          <span>{new Date(selectedTxModal.payment_date).toLocaleDateString()} {new Date(selectedTxModal.payment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>CASHIER:</span>
+                          <span>{cashierName} (ID #{selectedTxModal.recorded_by || 'ADMIN'})</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>POS TERMINAL:</span>
+                          <span>REG-01 (MALL FRONT)</span>
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Customer / Event Information */}
+                      <div style={{ fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>BOOKING REF:</span>
+                          <strong>#BK-{selectedTxModal.booking_id}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>CUSTOMER:</span>
+                          <strong style={{ textTransform: 'uppercase' }}>{selectedTxModal.customer_firstname} {selectedTxModal.customer_lastname}</strong>
+                        </div>
+                        {selectedTxModal.customer_no && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>CUST ID:</span>
+                            <span>{selectedTxModal.customer_no}</span>
+                          </div>
+                        )}
+                        {(selectedTxModal.contact_number || selectedTxModal.customer_phone) && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>CONTACT:</span>
+                            <span>{selectedTxModal.contact_number || selectedTxModal.customer_phone}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>EVENT:</span>
+                          <span style={{ fontWeight: 600 }}>{selectedTxModal.event_type || 'Banquet Catering'}</span>
+                        </div>
+                        {selectedTxModal.event_date && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>EVENT DATE:</span>
+                            <span>{new Date(selectedTxModal.event_date).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                        {selectedTxModal.venue_address && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+                            <span style={{ flexShrink: 0 }}>VENUE:</span>
+                            <span style={{ textAlign: 'right', wordBreak: 'break-word' }}>{selectedTxModal.venue_address}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Itemized Service Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '0.72rem', borderBottom: '1px dashed #4b5563', paddingBottom: '0.2rem', marginBottom: '0.35rem' }}>
+                        <span>QTY  DESCRIPTION</span>
+                        <span>TOTAL</span>
+                      </div>
+
+                      {/* Items */}
+                      <div style={{ fontSize: '0.74rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>1x Catering Service Package</span>
+                          <span style={{ fontWeight: 600 }}>₱{contractTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#4b5563', paddingLeft: '1.25rem', fontStyle: 'italic' }}>
+                          Reservation: {selectedTxModal.event_type || 'Catering Banquet'}
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Philippine Mall POS Tax Breakdown (BIR Compliant Format) */}
+                      <div style={{ fontSize: '0.71rem', display: 'flex', flexDirection: 'column', gap: '0.15rem', color: '#374151' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>VATABLE SALES (12%):</span>
+                          <span>₱{vatableSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>VAT AMOUNT (12%):</span>
+                          <span>₱{vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>VAT-EXEMPT SALES:</span>
+                          <span>₱0.00</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>ZERO RATED SALES:</span>
+                          <span>₱0.00</span>
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-double-divider" />
+
+                      {/* Payment Tendered & Summary */}
+                      <div style={{ fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900 }}>
+                          <span>TOTAL CONTRACT AMOUNT:</span>
+                          <span>₱{contractTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, background: '#f3f4f6', padding: '0.3rem 0.4rem', border: '1px solid #d1d5db', marginTop: '0.2rem' }}>
+                          <span>AMOUNT PAID (TENDERED):</span>
+                          <span>₱{amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                          <span>TENDER TYPE:</span>
+                          <span style={{ fontWeight: 700, textTransform: 'uppercase' }}>{selectedTxModal.payment_method || 'CASH'}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                          <span>REF / APPROVAL NO:</span>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{selectedTxModal.reference_no || 'CASH IN-PERSON'}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#4b5563' }}>
+                          <span>CHANGE DUE:</span>
+                          <span>₱0.00</span>
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Barcode Graphic */}
+                      <div style={{ textAlign: 'center', margin: '0.65rem 0 0.25rem' }}>
+                        <div style={{
+                          height: '38px',
+                          margin: '0 auto 4px',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'stretch',
+                          gap: '2px',
+                          maxWidth: '240px'
+                        }}>
+                          {[2,1,3,1,2,4,1,2,1,3,2,1,4,1,2,3,1,2,1,4,2,1,3,1,2,4,1,3,2,1,2,3,1,2].map((w, idx) => (
+                            <div key={idx} style={{ width: `${w}px`, background: '#111827' }} />
+                          ))}
+                        </div>
+                        <div style={{ fontSize: '0.66rem', letterSpacing: '0.18em', fontWeight: 700 }}>
+                          *PAY-{String(selectedTxModal.payment_id).padStart(6, '0')}-BK{selectedTxModal.booking_id}*
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Mall Footer Notes */}
+                      <div style={{ textAlign: 'center', fontSize: '0.66rem', color: '#4b5563', lineHeight: 1.35 }}>
+                        <div style={{ fontWeight: 800, color: '#111827', marginBottom: '0.15rem' }}>
+                          THANK YOU FOR CELEBRATING WITH US!
+                        </div>
+                        <div>THIS SERVES AS AN OFFICIAL SALES RECEIPT</div>
+                        <div>PLEASE KEEP THIS SLIP FOR AUDIT RECORDS</div>
+                        <div style={{ marginTop: '0.2rem', fontStyle: 'italic', fontSize: '0.62rem' }}>
+                          Accredited POS Provider: CaterMS POS v2.4
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Jagged / Serrated Paper Tear Edge */}
+                    <div style={{ width: '100%', height: '8px', overflow: 'hidden', lineHeight: 0, marginBottom: '-1px' }}>
+                      <svg width="100%" height="8" viewBox="0 0 100 8" preserveAspectRatio="none" style={{ display: 'block' }}>
+                        <polygon points="0,0 2.5,8 5,0 7.5,8 10,0 12.5,8 15,0 17.5,8 20,0 22.5,8 25,0 27.5,8 30,0 32.5,8 35,0 37.5,8 40,0 42.5,8 45,0 47.5,8 50,0 52.5,8 55,0 57.5,8 60,0 62.5,8 65,0 67.5,8 70,0 72.5,8 75,0 77.5,8 80,0 82.5,8 85,0 87.5,8 90,0 92.5,8 95,0 97.5,8 100,0" fill="#ffffff" />
+                      </svg>
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Status</div>
-                    <div style={{ fontWeight: 700, color: 'var(--success, #22c55e)' }}>RECORDED</div>
-                  </div>
                 </div>
-              </div>
 
-              <div className="modal-footer" style={{ padding: '1rem 0 0', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
-                <button onClick={() => window.print()} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Printer size={15} /> Print Official Slip
-                </button>
-                <button onClick={() => setSelectedTxModal(null)} className="btn btn-primary">
-                  Close Certificate
-                </button>
+                {/* Modal Footer Actions */}
+                <div className="modal-footer" style={{ padding: '0.75rem 0 0', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
+                  >
+                    <Printer size={15} /> Print Thermal Slip
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTxModal(null)}
+                    className="btn btn-primary"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal: View Booking Details */}
       {selectedBookingModal && (

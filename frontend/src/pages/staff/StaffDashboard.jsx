@@ -5,7 +5,7 @@ import ProfileSettings from '../../components/common/ProfileSettings';
 import {
   UserPlus, Clock, Calendar, CheckSquare, DollarSign, Eye, EyeOff,
   CheckCircle2, ShieldAlert, X, AlertCircle, Search, ChevronLeft, ChevronRight,
-  ShieldCheck, Copy, KeyRound, BarChart3, Receipt, CreditCard
+  ShieldCheck, Copy, KeyRound, BarChart3, Receipt, CreditCard, Printer
 } from 'lucide-react';
 
 // ---------- ADD CUSTOMER MODAL & FORM (SAME DESIGN & LOGIC AS LANDINGPAGE REGISTRATION MODAL) ----------
@@ -376,6 +376,10 @@ const StaffDashboard = () => {
   // Modal State
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
 
+  // Search / Filter — Overview Tab
+  const [overviewSearch, setOverviewSearch] = useState('');
+  const [overviewStatusFilter, setOverviewStatusFilter] = useState('all');
+
   // Search / Filter / Pagination — Bookings Queue
   const [bqSearch, setBqSearch] = useState('');
   const [bqStatusFilter, setBqStatusFilter] = useState('all');
@@ -409,6 +413,9 @@ const StaffDashboard = () => {
     reference_no: ''
   });
   const [paymentMsg, setPaymentMsg] = useState('');
+
+  // Official Receipt Modal State
+  const [receiptModalData, setReceiptModalData] = useState(null);
 
   // Verification Modal State
   const [verifyModalTarget, setVerifyModalTarget] = useState(null);
@@ -519,17 +526,43 @@ const StaffDashboard = () => {
     setPaymentMsg('');
 
     try {
-      await api.post('/payments', {
+      const res = await api.post('/payments', {
         booking_id: paymentModalBooking.booking_id,
         amount_paid: paymentForm.amount_paid,
         payment_method: paymentForm.payment_method,
         reference_no: paymentForm.reference_no
       });
-      setPaymentMsg('Payment successfully recorded!');
-      setTimeout(() => {
-        setPaymentModalBooking(null);
-        fetchBookingsQueue();
-      }, 1000);
+
+      const booked = paymentModalBooking;
+      const paymentData = res.data.payment || {};
+      const ledgerData = res.data.ledger;
+
+      const receipt = {
+        payment_id: paymentData.payment_id || Date.now(),
+        booking_id: booked.booking_id,
+        customer_firstname: booked.customer_firstname || paymentData.customer_firstname,
+        customer_lastname: booked.customer_lastname || paymentData.customer_lastname,
+        customer_no: paymentData.customer_no || booked.customer_no,
+        contact_number: paymentData.customer_phone || booked.contact_number,
+        email: paymentData.customer_email || booked.email,
+        event_type: booked.event_type || paymentData.event_type,
+        event_date: booked.event_date || paymentData.event_date,
+        venue_address: booked.venue_address || paymentData.venue_address,
+        booking_total: booked.total_amount || paymentData.booking_total,
+        amount_paid: paymentForm.amount_paid,
+        payment_method: paymentForm.payment_method,
+        reference_no: paymentForm.reference_no,
+        payment_date: paymentData.payment_date || new Date().toISOString(),
+        recorded_by_firstname: paymentData.recorded_by_firstname || 'Staff',
+        recorded_by_lastname: paymentData.recorded_by_lastname || '',
+        ledger: ledgerData
+      };
+
+      setPaymentModalBooking(null);
+      setReceiptModalData(receipt);
+      fetchBookingsQueue();
+      fetchPayments();
+      fetchStaffDashboard();
     } catch (err) {
       setPaymentMsg(err.response?.data?.message || 'Failed to record payment.');
     }
@@ -546,109 +579,214 @@ const StaffDashboard = () => {
 
         <div className="page-content">
           {/* Tab: Overview */}
-          {activeTab === 'overview' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {/* Section Header */}
-              <div className="section-header">
-                <div>
-                  <h1 className="section-title" style={{ fontSize: '1.5rem' }}>Staff Operations Overview</h1>
-                  <p className="section-subtitle">Customer profiling, event logistics coordination, and payment processing</p>
-                </div>
-              </div>
+          {activeTab === 'overview' && (() => {
+            const filteredOverviewBookings = bookingsQueue.filter((b) => {
+              const searchStr = `${b.customer_firstname} ${b.customer_lastname} ${b.booking_id} BK-${b.booking_id} ${b.event_type} ${b.venue_address} ${b.contact_number}`.toLowerCase();
+              const matchSearch = searchStr.includes(overviewSearch.toLowerCase());
+              const matchStatus = overviewStatusFilter === 'all' || b.status === overviewStatusFilter;
+              return matchSearch && matchStatus;
+            });
+            const isFiltering = overviewSearch.trim() !== '' || overviewStatusFilter !== 'all';
+            const displayBookings = isFiltering ? filteredOverviewBookings : filteredOverviewBookings.slice(0, 5);
 
-              {/* Stats Cards */}
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <div className="stat-icon stat-icon-amber"><Clock size={22} /></div>
-                  <div>
-                    <div className="stat-value">{dashboardData.pending_accounts}</div>
-                    <div className="stat-label">Pending Verifications</div>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-icon stat-icon-orange"><Calendar size={22} /></div>
-                  <div>
-                    <div className="stat-value">{dashboardData.assigned_bookings}</div>
-                    <div className="stat-label">Active / Queue Bookings</div>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-icon stat-icon-green"><CheckSquare size={22} /></div>
-                  <div>
-                    <div className="stat-value">{createdCustomers.length}</div>
-                    <div className="stat-label">Customers Encoded</div>
-                  </div>
-                </div>
-              </div>
-              <div className="card p-6">
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {/* Section Header */}
                 <div className="section-header">
                   <div>
-                    <h3 className="section-title">Active Event Orders Queue</h3>
-                    <p className="section-subtitle">Overview of current catering reservations awaiting action</p>
+                    <h1 className="section-title" style={{ fontSize: '1.5rem' }}>Staff Operations Overview</h1>
+                    <p className="section-subtitle">Customer profiling, event logistics coordination, and payment processing</p>
                   </div>
-                  <button onClick={() => setActiveTab('bookings')} className="btn btn-secondary btn-sm">
-                    Full Bookings Queue ({bookingsQueue.length})
-                  </button>
                 </div>
-                {bookingsQueue.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon"><Calendar size={24} /></div>
-                    <div className="empty-title">No bookings in queue</div>
-                    <div className="empty-desc">New customer bookings will appear here.</div>
+
+                {/* Stats Cards */}
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <div className="stat-icon stat-icon-amber"><Clock size={22} /></div>
+                    <div>
+                      <div className="stat-value">{dashboardData.pending_accounts}</div>
+                      <div className="stat-label">Pending Verifications</div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="table-wrap">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Booking ID</th>
-                          <th>Customer</th>
-                          <th>Contact</th>
-                          <th>Event &amp; Date</th>
-                          <th>Venue</th>
-                          <th>Amount</th>
-                          <th>Status</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bookingsQueue.slice(0, 5).map((b) => (
-                          <tr key={b.booking_id}>
-                            <td><strong>#BK-{b.booking_id}</strong></td>
-                            <td>{b.customer_firstname} {b.customer_lastname}</td>
-                            <td>{b.contact_number}</td>
-                            <td>
-                              <div><strong>{b.event_type}</strong></div>
-                              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(b.event_date).toLocaleDateString()}</div>
-                            </td>
-                            <td style={{ fontSize: '0.85rem' }}>{b.venue_address}</td>
-                            <td style={{ color: 'var(--amber)', fontWeight: '600' }}>
-                              ₱{parseFloat(b.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td>
-                              <span className={`badge badge-${b.status}`}>
-                                {b.status.replace(/_/g, ' ')}
-                              </span>
-                            </td>
-                            <td>
-                              <button
-                                onClick={() => {
-                                  setPaymentModalBooking(b);
-                                  setPaymentForm({ amount_paid: '', payment_method: 'cash', reference_no: '' });
-                                  setPaymentMsg('');
-                                }}
-                                className="btn btn-success btn-sm"
-                              >
-                                <DollarSign size={14} /> Pay
-                              </button>
-                            </td>
+                  <div className="stat-card">
+                    <div className="stat-icon stat-icon-orange"><Calendar size={22} /></div>
+                    <div>
+                      <div className="stat-value">{dashboardData.assigned_bookings}</div>
+                      <div className="stat-label">Active / Queue Bookings</div>
+                    </div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-icon stat-icon-green"><CheckSquare size={22} /></div>
+                    <div>
+                      <div className="stat-value">{createdCustomers.length}</div>
+                      <div className="stat-label">Customers Encoded</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Active Event Orders Queue with Search Bar */}
+                <div className="card p-6">
+                  <div className="section-header" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div>
+                      <h3 className="section-title">Active Event Orders Queue</h3>
+                      <p className="section-subtitle">Overview of current catering reservations awaiting action</p>
+                    </div>
+                    <button onClick={() => setActiveTab('bookings')} className="btn btn-secondary btn-sm">
+                      Full Bookings Queue ({bookingsQueue.length})
+                    </button>
+                  </div>
+
+                  {/* Search Bar & Filter */}
+                  <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                    <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                      <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input
+                        className="form-input"
+                        style={{ paddingLeft: '2.25rem', paddingRight: overviewSearch ? '2rem' : '0.75rem' }}
+                        placeholder="Search by customer, booking ID, event type, venue, or contact..."
+                        value={overviewSearch}
+                        onChange={(e) => setOverviewSearch(e.target.value)}
+                      />
+                      {overviewSearch && (
+                        <button
+                          onClick={() => setOverviewSearch('')}
+                          style={{
+                            position: 'absolute',
+                            right: '0.6rem',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            padding: '0.2rem'
+                          }}
+                          title="Clear search"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <select
+                      className="form-select"
+                      style={{ width: 'auto' }}
+                      value={overviewStatusFilter}
+                      onChange={(e) => setOverviewStatusFilter(e.target.value)}
+                    >
+                      <option value="all">All Event Statuses</option>
+                      <option value="pending">Pending</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="preparing">Preparing</option>
+                      <option value="on_the_way">On the Way</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+
+                  {/* Match Count Indicator when searching/filtering */}
+                  {isFiltering && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                      <span>
+                        Found <strong style={{ color: 'var(--text-primary)' }}>{filteredOverviewBookings.length}</strong> matching {filteredOverviewBookings.length === 1 ? 'order' : 'orders'}
+                        {overviewSearch && <> for "<strong>{overviewSearch}</strong>"</>}
+                      </span>
+                      <button
+                        onClick={() => { setOverviewSearch(''); setOverviewStatusFilter('all'); }}
+                        style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, padding: 0 }}
+                      >
+                        Clear search &amp; filters
+                      </button>
+                    </div>
+                  )}
+
+                  {filteredOverviewBookings.length === 0 ? (
+                    isFiltering ? (
+                      <div className="empty-state">
+                        <div className="empty-icon"><Search size={24} /></div>
+                        <div className="empty-title">No matching event orders found</div>
+                        <div className="empty-desc">No reservations match your search criteria. Try a different keyword or reset filters.</div>
+                        <button
+                          onClick={() => { setOverviewSearch(''); setOverviewStatusFilter('all'); }}
+                          className="btn btn-secondary btn-sm"
+                          style={{ marginTop: '0.75rem' }}
+                        >
+                          Reset Search
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="empty-state">
+                        <div className="empty-icon"><Calendar size={24} /></div>
+                        <div className="empty-title">No bookings in queue</div>
+                        <div className="empty-desc">New customer bookings will appear here.</div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="table-wrap">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Booking ID</th>
+                            <th>Customer</th>
+                            <th>Contact</th>
+                            <th>Event &amp; Date</th>
+                            <th>Venue</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Action</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                        </thead>
+                        <tbody>
+                          {displayBookings.map((b) => (
+                            <tr key={b.booking_id}>
+                              <td><strong>#BK-{b.booking_id}</strong></td>
+                              <td>{b.customer_firstname} {b.customer_lastname}</td>
+                              <td>{b.contact_number}</td>
+                              <td>
+                                <div><strong>{b.event_type}</strong></div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(b.event_date).toLocaleDateString()}</div>
+                              </td>
+                              <td style={{ fontSize: '0.85rem' }}>{b.venue_address}</td>
+                              <td style={{ color: 'var(--amber)', fontWeight: '600' }}>
+                                ₱{parseFloat(b.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td>
+                                <span className={`badge badge-${b.status}`}>
+                                  {b.status.replace(/_/g, ' ')}
+                                </span>
+                              </td>
+                              <td>
+                                <button
+                                  onClick={() => {
+                                    setPaymentModalBooking(b);
+                                    setPaymentForm({ amount_paid: '', payment_method: 'cash', reference_no: '' });
+                                    setPaymentMsg('');
+                                  }}
+                                  className="btn btn-success btn-sm"
+                                >
+                                  <DollarSign size={14} /> Pay
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {!isFiltering && bookingsQueue.length > 5 && (
+                    <div style={{ marginTop: '0.75rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Showing first 5 of {bookingsQueue.length} active orders. Use the search bar above or view{' '}
+                      <button
+                        onClick={() => setActiveTab('bookings')}
+                        style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', padding: 0 }}
+                      >
+                        Full Bookings Queue
+                      </button>
+                    </div>
+                  )}
+                </div>
 
               <div className="grid-2">
                 <div className="card p-6">
@@ -672,7 +810,8 @@ const StaffDashboard = () => {
                 </div>
               </div>
             </div>
-          )}
+          );
+        })()}
 
 
 
@@ -1153,11 +1292,12 @@ const StaffDashboard = () => {
                             <th>Ref No.</th>
                             <th>Recorded By</th>
                             <th>Date</th>
+                            <th>Receipt</th>
                           </tr>
                         </thead>
                         <tbody>
                           {pagedPay.length === 0 ? (
-                            <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No payment records found.</td></tr>
+                            <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No payment records found.</td></tr>
                           ) : pagedPay.map((p) => (
                             <tr key={p.payment_id}>
                               <td><strong>#PAY-{p.payment_id}</strong></td>
@@ -1171,6 +1311,16 @@ const StaffDashboard = () => {
                               <td>{p.reference_no || '—'}</td>
                               <td>{p.recorded_by_firstname} {p.recorded_by_lastname}</td>
                               <td style={{ fontSize: '0.8rem' }}>{new Date(p.payment_date).toLocaleString()}</td>
+                              <td>
+                                <button
+                                  onClick={() => setReceiptModalData(p)}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}
+                                  title="View Official Receipt"
+                                >
+                                  <Receipt size={14} /> View Receipt
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1310,6 +1460,287 @@ const StaffDashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Modal: Official Mall Thermal Receipt */}
+      {receiptModalData && (() => {
+        const contractTotal = parseFloat(receiptModalData.booking_total || receiptModalData.total_amount || 0);
+        const amountPaid = parseFloat(receiptModalData.amount_paid || 0);
+        const vatableSales = contractTotal > 0 ? (contractTotal / 1.12) : 0;
+        const vatAmount = contractTotal > 0 ? (contractTotal - vatableSales) : 0;
+        const totalPaidToDate = receiptModalData.ledger ? parseFloat(receiptModalData.ledger.total_paid || 0) : amountPaid;
+        const remainingBal = receiptModalData.ledger ? parseFloat(receiptModalData.ledger.remaining_balance || 0) : Math.max(0, contractTotal - amountPaid);
+
+        return (
+          <div className="modal-overlay" style={{ zIndex: 1100 }}>
+            <div className="modal-box" style={{ maxWidth: '440px', borderRadius: 'var(--r-xl)', border: '1px solid var(--border)' }}>
+              <div className="modal-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 'var(--r-md)', background: 'rgba(34, 197, 94, 0.12)', color: 'var(--success, #22c55e)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Receipt size={20} />
+                  </div>
+                  <div>
+                    <h3 className="modal-title" style={{ margin: 0, fontSize: '1.05rem' }}>Official Cash Register Receipt</h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                      Mall POS Terminal • Slip #PAY-{receiptModalData.payment_id}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setReceiptModalData(null)} className="btn btn-ghost btn-icon">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ paddingTop: '1rem', paddingBottom: '0.5rem' }}>
+                {/* Thermal Paper Roll Presentation */}
+                <div className="mall-receipt-wrapper">
+                  <div className="mall-receipt-paper">
+                    {/* Top Jagged / Serrated Paper Tear Edge */}
+                    <div style={{ width: '100%', height: '8px', overflow: 'hidden', lineHeight: 0, marginTop: '-1px' }}>
+                      <svg width="100%" height="8" viewBox="0 0 100 8" preserveAspectRatio="none" style={{ display: 'block' }}>
+                        <polygon points="0,8 2.5,0 5,8 7.5,0 10,8 12.5,0 15,8 17.5,0 20,8 22.5,0 25,8 27.5,0 30,8 32.5,0 35,8 37.5,0 40,8 42.5,0 45,8 47.5,0 50,8 52.5,0 55,8 57.5,0 60,8 62.5,0 65,8 67.5,0 70,8 72.5,0 75,8 77.5,0 80,8 82.5,0 85,8 87.5,0 90,8 92.5,0 95,8 97.5,0 100,8" fill="#ffffff" />
+                      </svg>
+                    </div>
+
+                    <div className="mall-receipt-content">
+                      {/* Store / Mall Header */}
+                      <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+                        <div style={{ fontWeight: 900, fontSize: '0.98rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                          CATERMS CATERING SERVICES
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#4b5563', textTransform: 'uppercase', marginTop: '0.1rem', fontWeight: 600 }}>
+                          MALL BANQUET &amp; EVENT HUB
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>
+                          4th Floor Central Pavilion, City Mall Complex
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>
+                          VAT REG TIN: 452-901-832-000
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#4b5563' }}>
+                          MIN: 240918-091823 • MACHINE SN: POS-0081
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'center', fontWeight: 800, fontSize: '0.86rem', letterSpacing: '0.06em', margin: '0.4rem 0' }}>
+                        *** OFFICIAL SALES RECEIPT ***
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Register Transaction Meta */}
+                      <div style={{ fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>OR NO.</span>
+                          <strong style={{ fontFamily: 'monospace' }}>OR-{String(receiptModalData.payment_id).padStart(6, '0')}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>DATE / TIME:</span>
+                          <span>{new Date(receiptModalData.payment_date).toLocaleDateString()} {new Date(receiptModalData.payment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>CASHIER:</span>
+                          <span>{receiptModalData.recorded_by_firstname} {receiptModalData.recorded_by_lastname}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>POS TERMINAL:</span>
+                          <span>REG-01 (MALL FRONT)</span>
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Customer / Event Information */}
+                      <div style={{ fontSize: '0.72rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>BOOKING REF:</span>
+                          <strong>#BK-{receiptModalData.booking_id}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>CUSTOMER:</span>
+                          <strong style={{ textTransform: 'uppercase' }}>{receiptModalData.customer_firstname} {receiptModalData.customer_lastname}</strong>
+                        </div>
+                        {receiptModalData.customer_no && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>CUST ID:</span>
+                            <span>{receiptModalData.customer_no}</span>
+                          </div>
+                        )}
+                        {(receiptModalData.contact_number || receiptModalData.customer_phone) && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>CONTACT:</span>
+                            <span>{receiptModalData.contact_number || receiptModalData.customer_phone}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>EVENT:</span>
+                          <span style={{ fontWeight: 600 }}>{receiptModalData.event_type || 'Banquet Catering'}</span>
+                        </div>
+                        {receiptModalData.event_date && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span>EVENT DATE:</span>
+                            <span>{new Date(receiptModalData.event_date).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                        {receiptModalData.venue_address && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+                            <span style={{ flexShrink: 0 }}>VENUE:</span>
+                            <span style={{ textAlign: 'right', wordBreak: 'break-word' }}>{receiptModalData.venue_address}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Itemized Service Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '0.72rem', borderBottom: '1px dashed #4b5563', paddingBottom: '0.2rem', marginBottom: '0.35rem' }}>
+                        <span>QTY  DESCRIPTION</span>
+                        <span>TOTAL</span>
+                      </div>
+
+                      {/* Items */}
+                      <div style={{ fontSize: '0.74rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>1x Catering Service Package</span>
+                          <span style={{ fontWeight: 600 }}>₱{contractTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: '#4b5563', paddingLeft: '1.25rem', fontStyle: 'italic' }}>
+                          Reservation: {receiptModalData.event_type || 'Catering Banquet'}
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Philippine Mall POS Tax Breakdown (BIR Compliant Format) */}
+                      <div style={{ fontSize: '0.71rem', display: 'flex', flexDirection: 'column', gap: '0.15rem', color: '#374151' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>VATABLE SALES (12%):</span>
+                          <span>₱{vatableSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>VAT AMOUNT (12%):</span>
+                          <span>₱{vatAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>VAT-EXEMPT SALES:</span>
+                          <span>₱0.00</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>ZERO RATED SALES:</span>
+                          <span>₱0.00</span>
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-double-divider" />
+
+                      {/* Payment Tendered & Ledger Summary */}
+                      <div style={{ fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900 }}>
+                          <span>TOTAL CONTRACT AMOUNT:</span>
+                          <span>₱{contractTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, background: '#f3f4f6', padding: '0.3rem 0.4rem', border: '1px solid #d1d5db', marginTop: '0.2rem' }}>
+                          <span>AMOUNT PAID (TENDERED):</span>
+                          <span>₱{amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                          <span>TENDER TYPE:</span>
+                          <span style={{ fontWeight: 700, textTransform: 'uppercase' }}>{receiptModalData.payment_method || 'CASH'}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                          <span>REF / APPROVAL NO:</span>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{receiptModalData.reference_no || 'CASH IN-PERSON'}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.73rem', borderTop: '1px dashed #9ca3af', paddingTop: '0.25rem' }}>
+                          <span>TOTAL PAID TO DATE:</span>
+                          <span style={{ fontWeight: 700 }}>₱{totalPaidToDate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', fontWeight: 800 }}>
+                          <span>REMAINING BALANCE:</span>
+                          <span style={{ color: remainingBal <= 0 ? '#15803d' : '#b45309' }}>
+                            ₱{remainingBal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#4b5563' }}>
+                          <span>CHANGE DUE:</span>
+                          <span>₱0.00</span>
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Barcode Graphic */}
+                      <div style={{ textAlign: 'center', margin: '0.65rem 0 0.25rem' }}>
+                        <div style={{
+                          height: '38px',
+                          margin: '0 auto 4px',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'stretch',
+                          gap: '2px',
+                          maxWidth: '240px'
+                        }}>
+                          {[2,1,3,1,2,4,1,2,1,3,2,1,4,1,2,3,1,2,1,4,2,1,3,1,2,4,1,3,2,1,2,3,1,2].map((w, idx) => (
+                            <div key={idx} style={{ width: `${w}px`, background: '#111827' }} />
+                          ))}
+                        </div>
+                        <div style={{ fontSize: '0.66rem', letterSpacing: '0.18em', fontWeight: 700 }}>
+                          *PAY-{String(receiptModalData.payment_id).padStart(6, '0')}-BK{receiptModalData.booking_id}*
+                        </div>
+                      </div>
+
+                      <hr className="mall-receipt-divider" />
+
+                      {/* Mall Footer Notes */}
+                      <div style={{ textAlign: 'center', fontSize: '0.66rem', color: '#4b5563', lineHeight: 1.35 }}>
+                        <div style={{ fontWeight: 800, color: '#111827', marginBottom: '0.15rem' }}>
+                          THANK YOU FOR CELEBRATING WITH US!
+                        </div>
+                        <div>THIS SERVES AS AN OFFICIAL SALES RECEIPT</div>
+                        <div>PLEASE KEEP THIS SLIP FOR YOUR RECORDS</div>
+                        <div style={{ marginTop: '0.2rem', fontStyle: 'italic', fontSize: '0.62rem' }}>
+                          Accredited POS Provider: CaterMS POS v2.4
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Jagged / Serrated Paper Tear Edge */}
+                    <div style={{ width: '100%', height: '8px', overflow: 'hidden', lineHeight: 0, marginBottom: '-1px' }}>
+                      <svg width="100%" height="8" viewBox="0 0 100 8" preserveAspectRatio="none" style={{ display: 'block' }}>
+                        <polygon points="0,0 2.5,8 5,0 7.5,8 10,0 12.5,8 15,0 17.5,8 20,0 22.5,8 25,0 27.5,8 30,0 32.5,8 35,0 37.5,8 40,0 42.5,8 45,0 47.5,8 50,0 52.5,8 55,0 57.5,8 60,0 62.5,8 65,0 67.5,8 70,0 72.5,8 75,0 77.5,8 80,0 82.5,8 85,0 87.5,8 90,0 92.5,8 95,0 97.5,8 100,0" fill="#ffffff" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer Actions */}
+                <div className="modal-footer" style={{ padding: '0.75rem 0 0', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
+                  >
+                    <Printer size={15} /> Print Thermal Slip
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReceiptModalData(null)}
+                    className="btn btn-primary"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal: Customer Verification (Staff) */}
       {verifyModalTarget && (

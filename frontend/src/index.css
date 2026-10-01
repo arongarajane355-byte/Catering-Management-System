@@ -1631,3 +1631,69 @@ textarea {
   z-index: 2;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
+
+/* ===== MALL POS THERMAL RECEIPT STYLING ===== */
+.mall-receipt-wrapper {
+  background: #18181b;
+  padding: 1.25rem 0.75rem;
+  border-radius: var(--r-lg);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-height: 72vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+}
+
+.mall-receipt-paper {
+  width: 100%;
+  max-width: 380px;
+  background: #ffffff;
+  color: #111827;
+  font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.25);
+  position: relative;
+  user-select: text;
+}
+
+.mall-receipt-content {
+  padding: 1rem 1.25rem 0.85rem;
+}
+
+.mall-receipt-divider {
+  border: none;
+  border-top: 1px dashed #6b7280;
+  margin: 0.6rem 0;
+}
+
+.mall-receipt-double-divider {
+  border: none;
+  border-top: 2px double #111827;
+  margin: 0.6rem 0;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .mall-receipt-paper, .mall-receipt-paper * {
+    visibility: visible !important;
+  }
+  .mall-receipt-paper {
+    position: absolute !important;
+    left: 50% !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    width: 380px !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .modal-overlay {
+    background: transparent !important;
+    position: static !important;
+    padding: 0 !important;
+  }
+}
