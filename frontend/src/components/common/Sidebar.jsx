@@ -23,7 +23,8 @@ const navsByRole = {
   ],
   admin: [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { key: 'reports', label: 'Reports & Monitoring', icon: BarChart3 },
+    { key: 'analytics', label: 'Analytics & Graph Reports', icon: BarChart3 },
+    { key: 'reports', label: 'Monitoring', icon: BarChart3 },
     { key: 'verifications', label: 'Verifications', icon: ShieldCheck },
     { key: 'users', label: 'Users Management', icon: Users },
     { key: 'services', label: 'Service Catalog', icon: ShoppingBag },

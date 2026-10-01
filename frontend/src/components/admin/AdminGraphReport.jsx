@@ -5,7 +5,7 @@ import {
   BarChart3, RefreshCw, Printer, Download, Filter
 } from 'lucide-react';
 
-const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [] }) => {
+const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], staffBookings = [], staffPayments = [] }) => {
   // Period filter state
   const [period, setPeriod] = useState('monthly'); // 'monthly' | 'yearly' | 'from_to'
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -206,6 +206,56 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [] }) 
     completion_rate: 0,
     avg_booking_value: 0,
   };
+
+  const isInSelectedPeriod = (value) => {
+    if (!value) return false;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    if (period === 'monthly') return date.getFullYear() === selectedYear;
+    if (period === 'from_to') {
+      const dateKey = date.toISOString().slice(0, 10);
+      return dateKey >= fromDate && dateKey <= toDate;
+    }
+    return true;
+  };
+
+  const staffFinancialsById = {};
+  staffBookings.forEach((booking) => {
+    const staffId = booking.handled_by;
+    if (!staffId || !isInSelectedPeriod(booking[dateBasis] || booking.created_at)) return;
+    const staffKey = String(staffId);
+    if (!staffFinancialsById[staffKey]) {
+      staffFinancialsById[staffKey] = {
+        staffId,
+        name: `${booking.staff_firstname || ''} ${booking.staff_lastname || ''}`.trim() || `Staff ${staffId}`,
+        billedAmount: 0,
+        collectedAmount: 0,
+        bookingsCount: 0,
+        paymentsCount: 0,
+      };
+    }
+    staffFinancialsById[staffKey].billedAmount += parseFloat(booking.total_amount || 0);
+    staffFinancialsById[staffKey].bookingsCount += 1;
+  });
+  staffPayments.forEach((payment) => {
+    const staffId = payment.recorded_by;
+    if (!staffId || !isInSelectedPeriod(payment.payment_date)) return;
+    const staffKey = String(staffId);
+    if (!staffFinancialsById[staffKey]) {
+      staffFinancialsById[staffKey] = {
+        staffId,
+        name: `${payment.staff_firstname || ''} ${payment.staff_lastname || ''}`.trim() || `Staff ${staffId}`,
+        billedAmount: 0,
+        collectedAmount: 0,
+        bookingsCount: 0,
+        paymentsCount: 0,
+      };
+    }
+    staffFinancialsById[staffKey].collectedAmount += parseFloat(payment.amount_paid || 0);
+    staffFinancialsById[staffKey].paymentsCount += 1;
+  });
+  const staffFinancials = Object.values(staffFinancialsById).sort((a, b) => b.collectedAmount - a.collectedAmount);
+  const maxStaffFinancial = Math.max(1, ...staffFinancials.flatMap((staff) => [staff.billedAmount, staff.collectedAmount]));
 
   // Maximum scales for charts
   const maxFinancial = Math.max(1000, ...timeline.map((t) => Math.max(t.billed_amount, t.collected_amount)));
@@ -1006,6 +1056,56 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [] }) 
                 </div>
               );
             })()}
+          </div>
+        )}
+      </div>
+
+      <div className="card p-6">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>Staff Billing & Payment Records</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.35rem 0 0' }}>
+              Staff-attributed totals for the selected period. Live data refreshes every 15 seconds.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.78rem' }}>
+            <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f97316' }} /> Billed
+            </span>
+            <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: '#22c55e' }} /> Payments recorded
+            </span>
+          </div>
+        </div>
+
+        {staffFinancials.length === 0 ? (
+          <div className="empty-state" style={{ padding: '1.5rem 1rem' }}>
+            <div className="empty-title">No staff billing or payment records for this period</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {staffFinancials.map((staff) => (
+              <div key={staff.staffId} style={{ display: 'grid', gridTemplateColumns: 'minmax(100px, 0.8fr) minmax(120px, 1.2fr)', alignItems: 'center', gap: '0.75rem 1rem' }}>
+                <div>
+                  <strong style={{ fontSize: '0.88rem' }}>{staff.name}</strong>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '0.2rem' }}>
+                    {staff.bookingsCount} bookings · {staff.paymentsCount} payments
+                  </div>
+                </div>
+                <div aria-label={`${staff.name} billing and payment graph`} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <div style={{ height: 8, background: 'var(--bg-base)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${(staff.billedAmount / maxStaffFinancial) * 100}%`, height: '100%', background: '#f97316', borderRadius: 4 }} />
+                  </div>
+                  <div style={{ height: 8, background: 'var(--bg-base)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${(staff.collectedAmount / maxStaffFinancial) * 100}%`, height: '100%', background: '#22c55e', borderRadius: 4 }} />
+                  </div>
+                </div>
+                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.76rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Billed <strong style={{ display: 'block', color: 'var(--text-primary)' }}>{fmtMoney(staff.billedAmount)}</strong></span>
+                  <span style={{ color: 'var(--text-muted)' }}>Collected <strong style={{ display: 'block', color: 'var(--success)' }}>{fmtMoney(staff.collectedAmount)}</strong></span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

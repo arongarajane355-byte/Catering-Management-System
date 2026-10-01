@@ -788,30 +788,30 @@ const StaffDashboard = () => {
                   )}
                 </div>
 
-              <div className="grid-2">
-                <div className="card p-6">
-                  <h3 className="section-title mb-2">Customer Profiling</h3>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                    Encode new customer accounts directly. Accounts are automatically queued for admin verification.
-                  </p>
-                  <button onClick={() => setShowAddCustomerModal(true)} className="btn btn-primary btn-sm">
-                    <UserPlus size={16} /> Add Customer
-                  </button>
-                </div>
+                <div className="grid-2">
+                  <div className="card p-6">
+                    <h3 className="section-title mb-2">Customer Profiling</h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                      Encode new customer accounts directly. Accounts are automatically queued for admin verification.
+                    </p>
+                    <button onClick={() => setShowAddCustomerModal(true)} className="btn btn-primary btn-sm">
+                      <UserPlus size={16} /> Add Customer
+                    </button>
+                  </div>
 
-                <div className="card p-6">
-                  <h3 className="section-title mb-2">Customer Verification Tracker</h3>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                    Track status of customer accounts encoded by staff awaiting admin approval.
-                  </p>
-                  <button onClick={() => setActiveTab('encoded_list')} className="btn btn-secondary btn-sm">
-                    View Verification Tracker ({createdCustomers.length})
-                  </button>
+                  <div className="card p-6">
+                    <h3 className="section-title mb-2">Customer Verification Tracker</h3>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                      Track status of customer accounts encoded by staff awaiting admin approval.
+                    </p>
+                    <button onClick={() => setActiveTab('encoded_list')} className="btn btn-secondary btn-sm">
+                      View Verification Tracker ({createdCustomers.length})
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
 
 
 
@@ -826,116 +826,116 @@ const StaffDashboard = () => {
             const bqPageSafe = Math.min(bqPage, bqTotalPages);
             const pagedBq = filteredBq.slice((bqPageSafe - 1) * BQ_PAGE_SIZE, bqPageSafe * BQ_PAGE_SIZE);
             return (
-            <div className="card p-6">
-              <div className="section-header">
-                <h3 className="section-title">Catering &amp; Rental Orders Queue</h3>
-              </div>
-              {/* Search & Filter */}
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
-                  <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    className="form-input"
-                    style={{ paddingLeft: '2.25rem' }}
-                    placeholder="Search by customer name or booking ID…"
-                    value={bqSearch}
-                    onChange={e => { setBqSearch(e.target.value); setBqPage(1); }}
-                  />
+              <div className="card p-6">
+                <div className="section-header">
+                  <h3 className="section-title">Catering &amp; Rental Orders Queue</h3>
                 </div>
-                <select className="form-select" style={{ width: 'auto' }} value={bqStatusFilter} onChange={e => { setBqStatusFilter(e.target.value); setBqPage(1); }}>
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="preparing">Preparing</option>
-                  <option value="on_the_way">On the Way</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Booking ID</th>
-                      <th>Customer Name</th>
-                      <th>Contact</th>
-                      <th>Event Type &amp; Date</th>
-                      <th>Venue</th>
-                      <th>Total Amount</th>
-                      <th>Status</th>
-                      <th>Update Status</th>
-                      <th>Payment</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedBq.length === 0 ? (
-                      <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No bookings found.</td></tr>
-                    ) : pagedBq.map((b) => (
-                      <tr key={b.booking_id}>
-                        <td><strong>#BK-{b.booking_id}</strong></td>
-                        <td>{b.customer_firstname} {b.customer_lastname}</td>
-                        <td>{b.contact_number}</td>
-                        <td>
-                          <div><strong>{b.event_type}</strong></div>
-                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            {new Date(b.event_date).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td style={{ fontSize: '0.85rem' }}>{b.venue_address}</td>
-                        <td style={{ color: 'var(--amber)', fontWeight: '600' }}>
-                          ₱{parseFloat(b.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td>
-                          <span className={`badge badge-${b.status}`}>
-                            {b.status.replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                        <td>
-                          <select
-                            className="form-select"
-                            style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
-                            value={b.status}
-                            onChange={(e) => handleUpdateBookingStatus(b.booking_id, e.target.value)}
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="confirmed">Confirmed</option>
-                            <option value="preparing">Preparing</option>
-                            <option value="on_the_way">On the Way</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
-                        </td>
-                        <td>
-                          <button
-                            onClick={() => {
-                              setPaymentModalBooking(b);
-                              setPaymentForm({ amount_paid: '', payment_method: 'cash', reference_no: '' });
-                              setPaymentMsg('');
-                            }}
-                            className="btn btn-success btn-sm"
-                          >
-                            <DollarSign size={14} /> Record Payment
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* Pagination */}
-              {bqTotalPages > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  <span>Showing {(bqPageSafe - 1) * BQ_PAGE_SIZE + 1}–{Math.min(bqPageSafe * BQ_PAGE_SIZE, filteredBq.length)} of {filteredBq.length} bookings</span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBqPage(p => Math.max(1, p - 1))} disabled={bqPageSafe === 1}><ChevronLeft size={16} /></button>
-                    {Array.from({ length: bqTotalPages }, (_, i) => i + 1).map(pg => (
-                      <button key={pg} onClick={() => setBqPage(pg)} className={`btn btn-sm ${pg === bqPageSafe ? 'btn-primary' : 'btn-ghost'}`}>{pg}</button>
-                    ))}
-                    <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBqPage(p => Math.min(bqTotalPages, p + 1))} disabled={bqPageSafe === bqTotalPages}><ChevronRight size={16} /></button>
+                {/* Search & Filter */}
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                      className="form-input"
+                      style={{ paddingLeft: '2.25rem' }}
+                      placeholder="Search by customer name or booking ID…"
+                      value={bqSearch}
+                      onChange={e => { setBqSearch(e.target.value); setBqPage(1); }}
+                    />
                   </div>
+                  <select className="form-select" style={{ width: 'auto' }} value={bqStatusFilter} onChange={e => { setBqStatusFilter(e.target.value); setBqPage(1); }}>
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="preparing">Preparing</option>
+                    <option value="on_the_way">On the Way</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
                 </div>
-              )}
-            </div>
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Booking ID</th>
+                        <th>Customer Name</th>
+                        <th>Contact</th>
+                        <th>Event Type &amp; Date</th>
+                        <th>Venue</th>
+                        <th>Total Amount</th>
+                        <th>Status</th>
+                        <th>Update Status</th>
+                        <th>Payment</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagedBq.length === 0 ? (
+                        <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No bookings found.</td></tr>
+                      ) : pagedBq.map((b) => (
+                        <tr key={b.booking_id}>
+                          <td><strong>#BK-{b.booking_id}</strong></td>
+                          <td>{b.customer_firstname} {b.customer_lastname}</td>
+                          <td>{b.contact_number}</td>
+                          <td>
+                            <div><strong>{b.event_type}</strong></div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                              {new Date(b.event_date).toLocaleDateString()}
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '0.85rem' }}>{b.venue_address}</td>
+                          <td style={{ color: 'var(--amber)', fontWeight: '600' }}>
+                            ₱{parseFloat(b.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td>
+                            <span className={`badge badge-${b.status}`}>
+                              {b.status.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td>
+                            <select
+                              className="form-select"
+                              style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem' }}
+                              value={b.status}
+                              onChange={(e) => handleUpdateBookingStatus(b.booking_id, e.target.value)}
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="confirmed">Confirmed</option>
+                              <option value="preparing">Preparing</option>
+                              <option value="on_the_way">On the Way</option>
+                              <option value="completed">Completed</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => {
+                                setPaymentModalBooking(b);
+                                setPaymentForm({ amount_paid: '', payment_method: 'cash', reference_no: '' });
+                                setPaymentMsg('');
+                              }}
+                              className="btn btn-success btn-sm"
+                            >
+                              <DollarSign size={14} /> Record Payment
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Pagination */}
+                {bqTotalPages > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    <span>Showing {(bqPageSafe - 1) * BQ_PAGE_SIZE + 1}–{Math.min(bqPageSafe * BQ_PAGE_SIZE, filteredBq.length)} of {filteredBq.length} bookings</span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBqPage(p => Math.max(1, p - 1))} disabled={bqPageSafe === 1}><ChevronLeft size={16} /></button>
+                      {Array.from({ length: bqTotalPages }, (_, i) => i + 1).map(pg => (
+                        <button key={pg} onClick={() => setBqPage(pg)} className={`btn btn-sm ${pg === bqPageSafe ? 'btn-primary' : 'btn-ghost'}`}>{pg}</button>
+                      ))}
+                      <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBqPage(p => Math.min(bqTotalPages, p + 1))} disabled={bqPageSafe === bqTotalPages}><ChevronRight size={16} /></button>
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })()}
 
@@ -968,103 +968,103 @@ const StaffDashboard = () => {
               return matchSearch && matchStatus;
             });
             return (
-            <div className="card p-6">
-              <div className="section-header">
-                <h3 className="section-title">Encoded Customer Account Statuses</h3>
-              </div>
-              {/* Search & Filter */}
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
-                  <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    className="form-input"
-                    style={{ paddingLeft: '2.25rem' }}
-                    placeholder="Search by name, customer no., or email…"
-                    value={encSearch}
-                    onChange={e => setEncSearch(e.target.value)}
-                  />
+              <div className="card p-6">
+                <div className="section-header">
+                  <h3 className="section-title">Encoded Customer Account Statuses</h3>
                 </div>
-                <select className="form-select" style={{ width: 'auto' }} value={encStatusFilter} onChange={e => setEncStatusFilter(e.target.value)}>
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="verified">Verified</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-              <div className="table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Customer No.</th>
-                      <th>Customer Name</th>
-                      <th>Middlename</th>
-                      <th>Email</th>
-                      <th>Contact</th>
-                      <th>Status</th>
-                      <th>Admin Remarks</th>
-                      <th>Date Encoded</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEnc.length === 0 ? (
-                      <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No customer accounts found.</td></tr>
-                    ) : filteredEnc.map((c) => (
-                      <tr key={c.user_id}>
-                        <td><span className="badge badge-pending">{c.customer_no || `CUST-${new Date(c.created_at).getFullYear()}-${String(c.user_id).padStart(4, '0')}`}</span></td>
-                        <td><strong>{c.lastname}, {c.firstname}</strong></td>
-                        <td>{c.middlename || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
-                        <td>{c.email}</td>
-                        <td>{c.contact_number}</td>
-                        <td>
-                          <span className={`badge badge-${c.account_status}`}>
-                            {c.account_status}
-                          </span>
-                        </td>
-                        <td>{c.remarks || '—'}</td>
-                        <td>{new Date(c.created_at).toLocaleDateString()}</td>
-                        <td>
-                          {c.account_status === 'pending' ? (
-                            <div style={{ display: 'flex', gap: '0.4rem' }}>
-                              <button
-                                onClick={() => {
-                                  setVerifyModalTarget(c);
-                                  setVerifyAction('approved');
-                                  setVerifyRemarks('Customer documents & details verified by staff.');
-                                  setVerifyMsg('');
-                                  setGeneratedPassword('');
-                                }}
-                                className="btn btn-success btn-sm"
-                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                                title="Approve Customer Account"
-                              >
-                                <CheckCircle2 size={13} /> Approve
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setVerifyModalTarget(c);
-                                  setVerifyAction('rejected');
-                                  setVerifyRemarks('Incomplete credentials or details.');
-                                  setVerifyMsg('');
-                                  setGeneratedPassword('');
-                                }}
-                                className="btn btn-danger btn-sm"
-                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                                title="Reject Customer Account"
-                              >
-                                <X size={13} /> Reject
-                              </button>
-                            </div>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
-                          )}
-                        </td>
+                {/* Search & Filter */}
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                      className="form-input"
+                      style={{ paddingLeft: '2.25rem' }}
+                      placeholder="Search by name, customer no., or email…"
+                      value={encSearch}
+                      onChange={e => setEncSearch(e.target.value)}
+                    />
+                  </div>
+                  <select className="form-select" style={{ width: 'auto' }} value={encStatusFilter} onChange={e => setEncStatusFilter(e.target.value)}>
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="verified">Verified</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+                <div className="table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Customer No.</th>
+                        <th>Customer Name</th>
+                        <th>Middlename</th>
+                        <th>Email</th>
+                        <th>Contact</th>
+                        <th>Status</th>
+                        <th>Admin Remarks</th>
+                        <th>Date Encoded</th>
+                        <th>Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredEnc.length === 0 ? (
+                        <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No customer accounts found.</td></tr>
+                      ) : filteredEnc.map((c) => (
+                        <tr key={c.user_id}>
+                          <td><span className="badge badge-pending">{c.customer_no || `CUST-${new Date(c.created_at).getFullYear()}-${String(c.user_id).padStart(4, '0')}`}</span></td>
+                          <td><strong>{c.lastname}, {c.firstname}</strong></td>
+                          <td>{c.middlename || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                          <td>{c.email}</td>
+                          <td>{c.contact_number}</td>
+                          <td>
+                            <span className={`badge badge-${c.account_status}`}>
+                              {c.account_status}
+                            </span>
+                          </td>
+                          <td>{c.remarks || '—'}</td>
+                          <td>{new Date(c.created_at).toLocaleDateString()}</td>
+                          <td>
+                            {c.account_status === 'pending' ? (
+                              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                <button
+                                  onClick={() => {
+                                    setVerifyModalTarget(c);
+                                    setVerifyAction('approved');
+                                    setVerifyRemarks('Customer documents & details verified by staff.');
+                                    setVerifyMsg('');
+                                    setGeneratedPassword('');
+                                  }}
+                                  className="btn btn-success btn-sm"
+                                  style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                  title="Approve Customer Account"
+                                >
+                                  <CheckCircle2 size={13} /> Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setVerifyModalTarget(c);
+                                    setVerifyAction('rejected');
+                                    setVerifyRemarks('Incomplete credentials or details.');
+                                    setVerifyMsg('');
+                                    setGeneratedPassword('');
+                                  }}
+                                  className="btn btn-danger btn-sm"
+                                  style={{ padding: '0.25rem 0.55rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                  title="Reject Customer Account"
+                                >
+                                  <X size={13} /> Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
             );
           })()}
 
@@ -1275,8 +1275,6 @@ const StaffDashboard = () => {
                         <option value="all">All Methods</option>
                         <option value="cash">Cash</option>
                         <option value="gcash">GCash</option>
-                        <option value="bank_transfer">Bank Transfer</option>
-                        <option value="card">Card</option>
                       </select>
                     </div>
                     <div className="table-wrap">
@@ -1431,8 +1429,6 @@ const StaffDashboard = () => {
                   >
                     <option value="cash">Cash</option>
                     <option value="gcash">GCash</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="card">Credit/Debit Card</option>
                   </select>
                 </div>
 
@@ -1661,7 +1657,7 @@ const StaffDashboard = () => {
                           gap: '2px',
                           maxWidth: '240px'
                         }}>
-                          {[2,1,3,1,2,4,1,2,1,3,2,1,4,1,2,3,1,2,1,4,2,1,3,1,2,4,1,3,2,1,2,3,1,2].map((w, idx) => (
+                          {[2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 1, 2, 3, 1, 2, 1, 4, 2, 1, 3, 1, 2, 4, 1, 3, 2, 1, 2, 3, 1, 2].map((w, idx) => (
                             <div key={idx} style={{ width: `${w}px`, background: '#111827' }} />
                           ))}
                         </div>

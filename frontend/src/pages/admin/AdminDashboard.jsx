@@ -27,7 +27,7 @@ const AdminDashboard = () => {
   const [staffDetails, setStaffDetails] = useState({ encodedCustomers: [], staffPayments: [], staffBookings: [], staffLogs: [] });
   const [auditLogs, setAuditLogs] = useState([]);
 
-  const [repSubTab, setRepSubTab] = useState('analytics');
+  const [repSubTab, setRepSubTab] = useState('bookings');
   const [repSearch, setRepSearch] = useState('');
   const [repStatusFilter, setRepStatusFilter] = useState('all');
   const [repStaffFilter, setRepStaffFilter] = useState('all');
@@ -446,18 +446,18 @@ const AdminDashboard = () => {
                 <div className="card p-6">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <BarChart3 size={18} style={{ color: 'var(--brand)' }} />
-                    <h3 className="section-title">Reports & Monitoring Hub</h3>
+                    <h3 className="section-title">Monitoring</h3>
                   </div>
                   <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
                     Monitor staff-encoded customer accounts, event status tracking, financial collections, and transaction audit trails.
                   </p>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button
-                      onClick={() => { setActiveTab('reports'); setRepSubTab('analytics'); }}
+                      onClick={() => setActiveTab('analytics')}
                       className="btn btn-primary btn-sm"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                     >
-                      <BarChart3 size={14} /> View Graph Reports
+                      <BarChart3 size={14} /> View Analytics
                     </button>
                     <button
                       onClick={() => { setActiveTab('reports'); setRepSubTab('bookings'); }}
@@ -497,7 +497,30 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Tab: Reports & Monitoring */}
+          {/* Tab: Analytics & Reports */}
+          {activeTab === 'analytics' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div className="section-header">
+                <div>
+                  <h1 className="section-title" style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <BarChart3 size={24} style={{ color: 'var(--brand)' }} /> Analytics &amp; Graph Reports
+                  </h1>
+                  <p className="section-subtitle">Revenue, billing, staff collections, and booking trends.</p>
+                </div>
+                <button onClick={fetchAllData} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <RefreshCw size={14} /> Refresh Analytics
+                </button>
+              </div>
+              <AdminGraphReport
+                fallbackBookings={reportsBookings}
+                fallbackTransactions={reportsTransactions}
+                staffBookings={staffDetails.staffBookings || []}
+                staffPayments={staffDetails.staffPayments || []}
+              />
+            </div>
+          )}
+
+          {/* Tab: Monitoring */}
           {activeTab === 'reports' && (() => {
             const staffList = usersList.filter(u => u.role === 'staff');
 
@@ -528,14 +551,14 @@ const AdminDashboard = () => {
                 <div className="section-header">
                   <div>
                     <h1 className="section-title" style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <BarChart3 size={24} style={{ color: 'var(--brand)' }} /> Reports & Monitoring Hub
+                      <BarChart3 size={24} style={{ color: 'var(--brand)' }} /> Monitoring
                     </h1>
                     <p className="section-subtitle">
                       Monitor event status updates, staff-encoded accounts, financial collections, and cashier receipts.
                     </p>
                   </div>
                   <button onClick={fetchAllData} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <RefreshCw size={14} /> Refresh Reports
+                    <RefreshCw size={14} /> Refresh Monitoring
                   </button>
                 </div>
 
@@ -573,18 +596,6 @@ const AdminDashboard = () => {
 
                 {/* Sub-tab Navigation */}
                 <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '2px solid var(--border)', paddingBottom: '0', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => setRepSubTab('analytics')}
-                    style={{
-                      padding: '0.6rem 1.25rem', border: 'none', background: 'none', cursor: 'pointer',
-                      fontWeight: repSubTab === 'analytics' ? 700 : 400,
-                      color: repSubTab === 'analytics' ? 'var(--brand)' : 'var(--text-muted)',
-                      borderBottom: repSubTab === 'analytics' ? '2px solid var(--brand)' : '2px solid transparent',
-                      marginBottom: '-2px', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
-                    }}
-                  >
-                    <BarChart3 size={16} /> Graph Reports & Trends
-                  </button>
                   <button
                     onClick={() => setRepSubTab('bookings')}
                     style={{
@@ -634,14 +645,6 @@ const AdminDashboard = () => {
                     <UserCheck size={16} /> Staff-Encoded Reports Feed ({(staffDetails.encodedCustomers || []).length + (staffDetails.staffPayments || []).length + (staffDetails.staffBookings || []).length})
                   </button>
                 </div>
-
-                {/* Sub-Tab 0: Interactive Graph Reports & Trends */}
-                {repSubTab === 'analytics' && (
-                  <AdminGraphReport
-                    fallbackBookings={reportsBookings}
-                    fallbackTransactions={reportsTransactions}
-                  />
-                )}
 
                 {/* Sub-Tab 1: Bookings Status & Operational Report */}
                 {repSubTab === 'bookings' && (
@@ -777,7 +780,7 @@ const AdminDashboard = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {/* Method Cards */}
                     <div className="grid-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                      {['cash', 'gcash', 'bank_transfer', 'card'].map(method => {
+                      {['cash', 'gcash'].map(method => {
                         const matches = reportsTransactions.filter(t => t.payment_method === method);
                         const total = matches.reduce((sum, t) => sum + parseFloat(t.amount_paid || 0), 0);
                         return (
@@ -2111,7 +2114,7 @@ const AdminDashboard = () => {
                           gap: '2px',
                           maxWidth: '240px'
                         }}>
-                          {[2,1,3,1,2,4,1,2,1,3,2,1,4,1,2,3,1,2,1,4,2,1,3,1,2,4,1,3,2,1,2,3,1,2].map((w, idx) => (
+                          {[2, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1, 4, 1, 2, 3, 1, 2, 1, 4, 2, 1, 3, 1, 2, 4, 1, 3, 2, 1, 2, 3, 1, 2].map((w, idx) => (
                             <div key={idx} style={{ width: `${w}px`, background: '#111827' }} />
                           ))}
                         </div>
