@@ -7,6 +7,7 @@ import {
   Sparkles, UtensilsCrossed, ArrowRight, Star, UserPlus,
   X, CheckCircle2, AlertCircle, Eye, EyeOff, Copy, Check, FileText
 } from 'lucide-react';
+import cmsLogo from '../../assets/cms_logo.png';
 
 const getCategoryIcon = (name) => {
   if (name.includes('Catering')) return <Utensils size={22} />;
@@ -529,14 +530,10 @@ const LandingPage = () => {
       <nav className="pub-nav">
         <div className="pub-nav-logo">
           <img
-            src="src/assets/cms_logo.png"
-            alt="CMS Logo"
-            style={{
-              width: 32, height: 32, borderRadius: 8,
-              objectFit: 'cover'
-            }}
+            src={cmsLogo}
+            alt="CaterMS Logo"
           />
-          CaterMS
+          <span className="pub-nav-logo-text">CaterMS</span>
         </div>
         <div className="pub-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
           <a href="#catalog" className="btn-nav-animated-gradient">
