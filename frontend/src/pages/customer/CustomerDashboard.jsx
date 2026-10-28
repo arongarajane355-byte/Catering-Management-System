@@ -20,7 +20,8 @@ const CustomerDashboard = () => {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [eventType, setEventType] = useState('Wedding');
   const [eventDate, setEventDate] = useState('');
-  const [venueAddress, setVenueAddress] = useState('');
+  const [venueOption, setVenueOption] = useState('');
+  const [customVenue, setCustomVenue] = useState('');
   const [guestCount, setGuestCount] = useState(50);
   const [selectedItems, setSelectedItems] = useState([{ service_id: '', quantity: 1 }]);
   const [bookingSubmitLoading, setBookingSubmitLoading] = useState(false);
@@ -194,16 +195,28 @@ const CustomerDashboard = () => {
         return;
       }
 
+      const computedVenue = venueOption === 'Others'
+        ? customVenue.trim()
+        : (customVenue.trim() ? `${customVenue.trim()}, ${venueOption}` : venueOption);
+
+      if (!venueOption || (venueOption === 'Others' && !customVenue.trim())) {
+        setBookingMessage('Please select and specify a venue address.');
+        setBookingSubmitLoading(false);
+        return;
+      }
+
       await api.post('/bookings', {
         event_type: eventType,
         event_date: eventDate,
-        venue_address: venueAddress,
+        venue_address: computedVenue,
         guest_count: parseInt(guestCount),
         items: validItems
       });
 
       setBookingMessage('Booking request created successfully!');
       setShowBookingModal(false);
+      setVenueOption('');
+      setCustomVenue('');
       fetchDashboardData();
     } catch (err) {
       setBookingMessage(err.response?.data?.message || 'Failed to create booking');
@@ -803,14 +816,49 @@ const CustomerDashboard = () => {
                 <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Venue Address</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Complete street, Barangay, City"
-                      value={venueAddress}
-                      onChange={(e) => setVenueAddress(e.target.value)}
+                    <select
+                      className="form-select"
+                      value={venueOption}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setVenueOption(val);
+                        if (val !== 'Others' && venueOption === 'Others') {
+                          setCustomVenue('');
+                        }
+                      }}
                       required
-                    />
+                    >
+                      <option value="">-- Select Venue Address --</option>
+                      <option value="Bilar">Bilar</option>
+                      <option value="Batuan">Batuan</option>
+                      <option value="Talibon">Talibon</option>
+                      <option value="Carmen">Carmen</option>
+                      <option value="Trinidad">Trinidad</option>
+                      <option value="Others">Others</option>
+                    </select>
+
+                    {venueOption === 'Others' && (
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ marginTop: '0.5rem' }}
+                        placeholder="Complete street, Barangay, City"
+                        value={customVenue}
+                        onChange={(e) => setCustomVenue(e.target.value)}
+                        required
+                      />
+                    )}
+
+                    {venueOption && venueOption !== 'Others' && (
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ marginTop: '0.5rem' }}
+                        placeholder={`Specific street / Barangay / Landmark in ${venueOption} (Optional)`}
+                        value={customVenue}
+                        onChange={(e) => setCustomVenue(e.target.value)}
+                      />
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Guest Count</label>

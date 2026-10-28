@@ -499,25 +499,12 @@ const AdminDashboard = () => {
 
           {/* Tab: Analytics & Reports */}
           {activeTab === 'analytics' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div className="section-header">
-                <div>
-                  <h1 className="section-title" style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <BarChart3 size={24} style={{ color: 'var(--brand)' }} /> Analytics &amp; Graph Reports
-                  </h1>
-                  <p className="section-subtitle">Revenue, billing, staff collections, and booking trends.</p>
-                </div>
-                <button onClick={fetchAllData} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <RefreshCw size={14} /> Refresh Analytics
-                </button>
-              </div>
-              <AdminGraphReport
-                fallbackBookings={reportsBookings}
-                fallbackTransactions={reportsTransactions}
-                staffBookings={staffDetails.staffBookings || []}
-                staffPayments={staffDetails.staffPayments || []}
-              />
-            </div>
+            <AdminGraphReport
+              fallbackBookings={reportsBookings}
+              fallbackTransactions={reportsTransactions}
+              staffBookings={staffDetails.staffBookings || []}
+              staffPayments={staffDetails.staffPayments || []}
+            />
           )}
 
           {/* Tab: Monitoring */}

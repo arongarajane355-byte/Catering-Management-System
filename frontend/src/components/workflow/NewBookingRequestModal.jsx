@@ -18,7 +18,8 @@ const NewBookingRequestModal = ({ isOpen, onClose, onSuccess }) => {
   const [services, setServices] = useState([]);
   const [eventType, setEventType] = useState(EVENT_TYPES[0]);
   const [eventDate, setEventDate] = useState('');
-  const [venueAddress, setVenueAddress] = useState('');
+  const [venueOption, setVenueOption] = useState('');
+  const [customVenue, setCustomVenue] = useState('');
   const [guestCount, setGuestCount] = useState(50);
   const [specialRequests, setSpecialRequests] = useState('');
   const [estimatedBudget, setEstimatedBudget] = useState('');
@@ -79,8 +80,12 @@ const NewBookingRequestModal = ({ isOpen, onClose, onSuccess }) => {
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!eventType || !eventDate || !venueAddress || !guestCount) {
-      setErrorMsg('Please fill in all required fields (event type, date, venue, guest count).');
+    const computedVenue = venueOption === 'Others'
+      ? customVenue.trim()
+      : (customVenue.trim() ? `${customVenue.trim()}, ${venueOption}` : venueOption);
+
+    if (!eventType || !eventDate || !computedVenue || !guestCount) {
+      setErrorMsg('Please fill in all required fields (event type, date, venue address, guest count).');
       return;
     }
 
@@ -95,7 +100,7 @@ const NewBookingRequestModal = ({ isOpen, onClose, onSuccess }) => {
       const payload = {
         event_type: eventType,
         event_date: eventDate,
-        venue_address: venueAddress,
+        venue_address: computedVenue,
         guest_count: parseInt(guestCount),
         special_requests: specialRequests,
         estimated_budget: parseFloat(estimatedBudget) || calculatedItemsTotal,
@@ -192,15 +197,50 @@ const NewBookingRequestModal = ({ isOpen, onClose, onSuccess }) => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
             <div className="form-group">
-              <label className="form-label">Venue / Complete Event Address *</label>
-              <input
-                type="text"
+              <label className="form-label">Venue / Event Location *</label>
+              <select
                 className="form-control"
-                placeholder="e.g. Grand Ballroom, 123 Rizal Ave, Quezon City"
-                value={venueAddress}
-                onChange={(e) => setVenueAddress(e.target.value)}
+                value={venueOption}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setVenueOption(val);
+                  if (val !== 'Others' && venueOption === 'Others') {
+                    setCustomVenue('');
+                  }
+                }}
                 required
-              />
+              >
+                <option value="">-- Select Venue Location / Municipality --</option>
+                <option value="Bilar">Bilar</option>
+                <option value="Batuan">Batuan</option>
+                <option value="Talibon">Talibon</option>
+                <option value="Carmen">Carmen</option>
+                <option value="Trinidad">Trinidad</option>
+                <option value="Others">Others</option>
+              </select>
+
+              {venueOption === 'Others' && (
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{ marginTop: '0.5rem' }}
+                  placeholder="Complete street, Barangay, City"
+                  value={customVenue}
+                  onChange={(e) => setCustomVenue(e.target.value)}
+                  required
+                />
+              )}
+
+              {venueOption && venueOption !== 'Others' && (
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{ marginTop: '0.5rem' }}
+                  placeholder={`Specific street / Barangay / Landmark in ${venueOption} (Optional)`}
+                  value={customVenue}
+                  onChange={(e) => setCustomVenue(e.target.value)}
+                />
+              )}
             </div>
 
             <div className="form-group">
