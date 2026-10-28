@@ -1089,7 +1089,7 @@ const CustomerDashboard = () => {
                         })}
 
                         <button type="button" onClick={handleAddItemRow} className="btn btn-secondary btn-sm" style={{ marginTop: '0.25rem' }}>
-                          + Add Another Package / Item
+                          + Add-ons Package / Item
                         </button>
                       </div>
 
