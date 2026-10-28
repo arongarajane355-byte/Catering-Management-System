@@ -410,7 +410,8 @@ const StaffDashboard = () => {
   const [paymentForm, setPaymentForm] = useState({
     amount_paid: '',
     payment_method: 'cash',
-    reference_no: ''
+    reference_no: '',
+    security_deposit: ''
   });
   const [paymentMsg, setPaymentMsg] = useState('');
 
@@ -530,7 +531,8 @@ const StaffDashboard = () => {
         booking_id: paymentModalBooking.booking_id,
         amount_paid: paymentForm.amount_paid,
         payment_method: paymentForm.payment_method,
-        reference_no: paymentForm.reference_no
+        reference_no: paymentForm.reference_no,
+        security_deposit: parseFloat(paymentForm.security_deposit || 0)
       });
 
       const booked = paymentModalBooking;
@@ -555,6 +557,7 @@ const StaffDashboard = () => {
         payment_date: paymentData.payment_date || new Date().toISOString(),
         recorded_by_firstname: paymentData.recorded_by_firstname || 'Staff',
         recorded_by_lastname: paymentData.recorded_by_lastname || '',
+        security_deposit: parseFloat(paymentForm.security_deposit || booked.security_deposit || paymentData.security_deposit || 0),
         ledger: ledgerData
       };
 
@@ -760,7 +763,7 @@ const StaffDashboard = () => {
                                 <button
                                   onClick={() => {
                                     setPaymentModalBooking(b);
-                                    setPaymentForm({ amount_paid: '', payment_method: 'cash', reference_no: '' });
+                                    setPaymentForm({ amount_paid: '', payment_method: 'cash', reference_no: '', security_deposit: b.security_deposit || '' });
                                     setPaymentMsg('');
                                   }}
                                   className="btn btn-success btn-sm"
@@ -909,7 +912,7 @@ const StaffDashboard = () => {
                             <button
                               onClick={() => {
                                 setPaymentModalBooking(b);
-                                setPaymentForm({ amount_paid: '', payment_method: 'cash', reference_no: '' });
+                                setPaymentForm({ amount_paid: '', payment_method: 'cash', reference_no: '', security_deposit: b.security_deposit || '' });
                                 setPaymentMsg('');
                               }}
                               className="btn btn-success btn-sm"
@@ -1443,6 +1446,18 @@ const StaffDashboard = () => {
                   />
                 </div>
 
+                <div className="form-group">
+                  <label className="form-label">Refundable Security Deposit (₱) <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(Optional / Damage & Rental Guarantee)</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-input"
+                    placeholder="0.00"
+                    value={paymentForm.security_deposit}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, security_deposit: e.target.value })}
+                  />
+                </div>
+
                 <div className="modal-footer" style={{ padding: '1rem 0 0 0', borderTop: '1px solid var(--border)' }}>
                   <button type="button" onClick={() => setPaymentModalBooking(null)} className="btn btn-secondary">
                     Cancel
@@ -1615,6 +1630,13 @@ const StaffDashboard = () => {
                           <span>AMOUNT PAID (TENDERED):</span>
                           <span>₱{amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                         </div>
+
+                        {parseFloat(receiptModalData.security_deposit || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', background: '#ecfdf5', padding: '0.25rem 0.4rem', border: '1px solid #a7f3d0', borderRadius: '3px' }}>
+                            <span style={{ color: '#047857', fontWeight: 700 }}>REFUNDABLE SECURITY DEPOSIT:</span>
+                            <strong style={{ color: '#047857' }}>₱{parseFloat(receiptModalData.security_deposit).toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+                          </div>
+                        )}
 
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
                           <span>TENDER TYPE:</span>

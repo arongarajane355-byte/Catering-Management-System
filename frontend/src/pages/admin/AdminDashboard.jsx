@@ -1287,7 +1287,7 @@ const AdminDashboard = () => {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Customer No.</th>
+                        <th>Account / ID No.</th>
                         <th>Full Name</th>
                         <th>Role</th>
                         <th>Email</th>
@@ -1300,9 +1300,11 @@ const AdminDashboard = () => {
                     <tbody>
                       {pagedUsers.length === 0 ? (
                         <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No users found matching your filters.</td></tr>
-                      ) : pagedUsers.map((u) => (
+                      ) : pagedUsers.map((u) => {
+                        const accNo = u.customer_no || (u.role === 'staff' ? `STAFF-${new Date(u.created_at || Date.now()).getFullYear()}-${String(u.user_id).padStart(4, '0')}` : u.role === 'admin' ? `ADMIN-${String(u.user_id).padStart(4, '0')}` : `CUST-${new Date(u.created_at || Date.now()).getFullYear()}-${String(u.user_id).padStart(4, '0')}`);
+                        return (
                         <tr key={u.user_id}>
-                          <td>{u.customer_no ? <span className="badge badge-pending">{u.customer_no}</span> : <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
+                          <td><span className="badge badge-pending" style={{ fontFamily: 'monospace', fontWeight: 700 }}>{accNo}</span></td>
                           <td><strong>{u.lastname}, {u.firstname}</strong></td>
                           <td>
                             <span className={`badge ${u.role === 'staff' ? 'badge-pending' : 'badge-preparing'}`}>
@@ -1361,7 +1363,7 @@ const AdminDashboard = () => {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      ); })}
                     </tbody>
                   </table>
                 </div>
@@ -1672,6 +1674,22 @@ const AdminDashboard = () => {
                     <option value="customer">Customer</option>
                   </select>
                 </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    {staffForm.role === 'staff' ? 'Staff Account No.' : 'Customer Account No.'}{' '}
+                    <span style={{ fontSize: '0.72rem', color: 'var(--brand)', background: 'var(--brand-dim)', padding: '1px 6px', borderRadius: 4, fontWeight: 500 }}>
+                      Auto-generated
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={staffForm.role === 'staff' ? `STAFF-${new Date().getFullYear()}-AUTO` : `CUST-${new Date().getFullYear()}-AUTO`}
+                    disabled
+                    style={{ background: 'var(--bg-elevated)', cursor: 'not-allowed', color: 'var(--brand)', fontWeight: 700, fontFamily: 'monospace' }}
+                  />
+                </div>
                 <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">First Name</label>
@@ -1854,8 +1872,18 @@ const AdminDashboard = () => {
                 </div>
 
                 <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Customer / Account No.</div>
-                  <div style={{ fontWeight: 700, color: 'var(--brand)' }}>{viewUserModalTarget.customer_no || 'N/A (Staff/Admin)'}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                    {viewUserModalTarget.role === 'staff' ? 'Staff Account No.' : viewUserModalTarget.role === 'admin' ? 'Admin ID No.' : 'Customer Account No.'}
+                  </div>
+                  <div style={{ fontWeight: 700, color: 'var(--brand)', fontFamily: 'monospace', fontSize: '0.95rem' }}>
+                    {viewUserModalTarget.customer_no || (
+                      viewUserModalTarget.role === 'staff' 
+                        ? `STAFF-${new Date(viewUserModalTarget.created_at || Date.now()).getFullYear()}-${String(viewUserModalTarget.user_id).padStart(4, '0')}`
+                        : viewUserModalTarget.role === 'admin'
+                        ? `ADMIN-${new Date(viewUserModalTarget.created_at || Date.now()).getFullYear()}-${String(viewUserModalTarget.user_id).padStart(4, '0')}`
+                        : `CUST-${new Date(viewUserModalTarget.created_at || Date.now()).getFullYear()}-${String(viewUserModalTarget.user_id).padStart(4, '0')}`
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
@@ -2190,7 +2218,7 @@ const AdminDashboard = () => {
                 <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Event Type & Guests</div>
                   <div style={{ fontWeight: 600 }}>{selectedBookingModal.event_type}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>👥 {selectedBookingModal.guest_count} Guest Count</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>👥 {selectedBookingModal.guest_count} Number of Guest</div>
                 </div>
 
                 <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)', gridColumn: 'span 2' }}>
@@ -2232,6 +2260,11 @@ const AdminDashboard = () => {
                   <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--brand)' }}>
                     ₱{parseFloat(selectedBookingModal.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </div>
+                  {parseFloat(selectedBookingModal.security_deposit || 0) > 0 && (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--success, #22c55e)', marginTop: '0.25rem' }}>
+                      🛡️ Incl. ₱{parseFloat(selectedBookingModal.security_deposit).toLocaleString('en-US', { minimumFractionDigits: 2 })} Security Deposit
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ background: 'var(--bg-elevated)', padding: '0.875rem', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>

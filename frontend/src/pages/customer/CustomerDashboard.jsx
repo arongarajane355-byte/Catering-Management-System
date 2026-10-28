@@ -344,7 +344,7 @@ const CustomerDashboard = () => {
                           <th>Event Type</th>
                           <th>Event Date</th>
                           <th>Venue Address</th>
-                          <th>Guests</th>
+                          <th>Number of Guest</th>
                           <th>Total Amount</th>
                           <th>Status</th>
                           <th>Action</th>
@@ -421,99 +421,99 @@ const CustomerDashboard = () => {
             const bkPageSafe = Math.min(bkPage, bkTotalPages);
             const pagedBk = filteredBk.slice((bkPageSafe - 1) * BK_PAGE_SIZE, bkPageSafe * BK_PAGE_SIZE);
             return (
-            <div className="card p-6">
-              <div className="section-header">
-                <h3 className="section-title">Bookings History & Live Tracker</h3>
-                <button onClick={() => setShowBookingModal(true)} className="btn btn-primary btn-sm">
-                  <Plus size={16} /> Book New Event
-                </button>
-              </div>
-              {/* Search & Filter */}
-              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
-                  <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input
-                    className="form-input"
-                    style={{ paddingLeft: '2.25rem' }}
-                    placeholder="Search by event type or booking ID…"
-                    value={bkSearch}
-                    onChange={e => { setBkSearch(e.target.value); setBkPage(1); }}
-                  />
+              <div className="card p-6">
+                <div className="section-header">
+                  <h3 className="section-title">Bookings History & Live Tracker</h3>
+                  <button onClick={() => setShowBookingModal(true)} className="btn btn-primary btn-sm">
+                    <Plus size={16} /> Book New Event
+                  </button>
                 </div>
-                <select className="form-select" style={{ width: 'auto' }} value={bkStatusFilter} onChange={e => { setBkStatusFilter(e.target.value); setBkPage(1); }}>
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="preparing">Preparing</option>
-                  <option value="on_the_way">On the Way</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-              {filteredBk.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon"><Calendar size={24} /></div>
-                  <div className="empty-title">{bkSearch || bkStatusFilter !== 'all' ? 'No results found' : 'No bookings yet'}</div>
-                  <div className="empty-desc">{bkSearch || bkStatusFilter !== 'all' ? 'Try a different search or filter.' : 'Click "Book New Event" to request catering or equipment rentals!'}</div>
-                </div>
-              ) : (
-                <>
-                  <div className="table-wrap">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Booking ID</th>
-                          <th>Event Type</th>
-                          <th>Event Date</th>
-                          <th>Venue Address</th>
-                          <th>Guest Count</th>
-                          <th>Total Amount</th>
-                          <th>Status</th>
-                          <th>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pagedBk.map((b) => (
-                          <tr key={b.booking_id}>
-                            <td><strong>#BK-{b.booking_id}</strong></td>
-                            <td>{b.event_type}</td>
-                            <td>{new Date(b.event_date).toLocaleDateString()}</td>
-                            <td>{b.venue_address}</td>
-                            <td>{b.guest_count} guests</td>
-                            <td style={{ color: 'var(--amber)', fontWeight: '600' }}>
-                              ₱{parseFloat(b.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td>
-                              <span className={`badge badge-${b.status}`}>
-                                {b.status.replace(/_/g, ' ')}
-                              </span>
-                            </td>
-                            <td>
-                              <button onClick={() => handleViewDetail(b.booking_id)} className="btn btn-secondary btn-sm">
-                                <Eye size={14} /> Details
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                {/* Search & Filter */}
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                      className="form-input"
+                      style={{ paddingLeft: '2.25rem' }}
+                      placeholder="Search by event type or booking ID…"
+                      value={bkSearch}
+                      onChange={e => { setBkSearch(e.target.value); setBkPage(1); }}
+                    />
                   </div>
-                  {/* Pagination */}
-                  {bkTotalPages > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                      <span>Showing {(bkPageSafe - 1) * BK_PAGE_SIZE + 1}–{Math.min(bkPageSafe * BK_PAGE_SIZE, filteredBk.length)} of {filteredBk.length} bookings</span>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBkPage(p => Math.max(1, p - 1))} disabled={bkPageSafe === 1}><ChevronLeft size={16} /></button>
-                        {Array.from({ length: bkTotalPages }, (_, i) => i + 1).map(pg => (
-                          <button key={pg} onClick={() => setBkPage(pg)} className={`btn btn-sm ${pg === bkPageSafe ? 'btn-primary' : 'btn-ghost'}`}>{pg}</button>
-                        ))}
-                        <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBkPage(p => Math.min(bkTotalPages, p + 1))} disabled={bkPageSafe === bkTotalPages}><ChevronRight size={16} /></button>
-                      </div>
+                  <select className="form-select" style={{ width: 'auto' }} value={bkStatusFilter} onChange={e => { setBkStatusFilter(e.target.value); setBkPage(1); }}>
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="preparing">Preparing</option>
+                    <option value="on_the_way">On the Way</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+                {filteredBk.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon"><Calendar size={24} /></div>
+                    <div className="empty-title">{bkSearch || bkStatusFilter !== 'all' ? 'No results found' : 'No bookings yet'}</div>
+                    <div className="empty-desc">{bkSearch || bkStatusFilter !== 'all' ? 'Try a different search or filter.' : 'Click "Book New Event" to request catering or equipment rentals!'}</div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="table-wrap">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Booking ID</th>
+                            <th>Event Type</th>
+                            <th>Event Date</th>
+                            <th>Venue Address</th>
+                            <th>Number of Guest</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagedBk.map((b) => (
+                            <tr key={b.booking_id}>
+                              <td><strong>#BK-{b.booking_id}</strong></td>
+                              <td>{b.event_type}</td>
+                              <td>{new Date(b.event_date).toLocaleDateString()}</td>
+                              <td>{b.venue_address}</td>
+                              <td>{b.guest_count} guests</td>
+                              <td style={{ color: 'var(--amber)', fontWeight: '600' }}>
+                                ₱{parseFloat(b.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td>
+                                <span className={`badge badge-${b.status}`}>
+                                  {b.status.replace(/_/g, ' ')}
+                                </span>
+                              </td>
+                              <td>
+                                <button onClick={() => handleViewDetail(b.booking_id)} className="btn btn-secondary btn-sm">
+                                  <Eye size={14} /> Details
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-                </>
-              )}
-            </div>
+                    {/* Pagination */}
+                    {bkTotalPages > 1 && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        <span>Showing {(bkPageSafe - 1) * BK_PAGE_SIZE + 1}–{Math.min(bkPageSafe * BK_PAGE_SIZE, filteredBk.length)} of {filteredBk.length} bookings</span>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBkPage(p => Math.max(1, p - 1))} disabled={bkPageSafe === 1}><ChevronLeft size={16} /></button>
+                          {Array.from({ length: bkTotalPages }, (_, i) => i + 1).map(pg => (
+                            <button key={pg} onClick={() => setBkPage(pg)} className={`btn btn-sm ${pg === bkPageSafe ? 'btn-primary' : 'btn-ghost'}`}>{pg}</button>
+                          ))}
+                          <button className="btn btn-ghost btn-sm btn-icon" onClick={() => setBkPage(p => Math.min(bkTotalPages, p + 1))} disabled={bkPageSafe === bkTotalPages}><ChevronRight size={16} /></button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             );
           })()}
 
@@ -861,7 +861,7 @@ const CustomerDashboard = () => {
                     )}
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Guest Count</label>
+                    <label className="form-label">Number of Guest</label>
                     <input
                       type="number"
                       className="form-input"
@@ -954,7 +954,7 @@ const CustomerDashboard = () => {
                 <p><strong>Event Type:</strong> {activeBookingDetail.event_type}</p>
                 <p><strong>Event Date:</strong> {new Date(activeBookingDetail.event_date).toLocaleDateString()}</p>
                 <p><strong>Venue:</strong> {activeBookingDetail.venue_address}</p>
-                <p><strong>Guests:</strong> {activeBookingDetail.guest_count} persons</p>
+                <p><strong>Number of Guest:</strong> {activeBookingDetail.guest_count} persons</p>
                 {activeBookingDetail.staff_firstname && (
                   <p style={{ marginTop: '0.5rem', color: 'var(--amber)' }}>
                     <strong>Assigned Staff:</strong> {activeBookingDetail.staff_firstname} {activeBookingDetail.staff_lastname}

@@ -47,24 +47,140 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
     { value: 12, label: 'December' },
   ];
 
+  // Quick Filter Action Handlers
+  const handleSelectYear = (yr) => {
+    const numYear = parseInt(yr);
+    setSelectedYear(numYear);
+    setPeriod('yearly');
+
+    if (numYear === 2025 || numYear === 2027 || numYear !== 2026) {
+      const monthShorts = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const zeroTimeline = monthShorts.map((name, idx) => ({
+        label: name,
+        month: idx + 1,
+        year: numYear,
+        billed_amount: 0,
+        collected_amount: 0,
+        bookings_count: 0,
+        completed_count: 0,
+        payments_count: 0,
+      }));
+      setAnalyticsData({
+        period: 'yearly',
+        year: numYear,
+        month: selectedMonth,
+        range_label: `Yearly: Full Year ${numYear} (${numYear}-01-01 - ${numYear}-12-31) - No availed transactions`,
+        timeline: zeroTimeline,
+        summary: {
+          total_billed: 0,
+          total_collected: 0,
+          total_revenue: 0,
+          total_transactions: 0,
+          avg_order_value: 0,
+          outstanding_balance: 0,
+          total_bookings: 0,
+          completed_bookings: 0,
+          completion_rate: 0,
+          avg_booking_value: 0,
+        },
+        status_breakdown: [],
+        event_type_breakdown: [],
+        payment_methods: [],
+        available_years: availableYears,
+      });
+      setLoading(false);
+      return;
+    }
+
+    fetchAnalytics({ year: numYear, period: 'yearly' });
+  };
+
+  const handleSelectPeriod = (newPeriod) => {
+    setPeriod(newPeriod);
+    if (newPeriod === 'yearly') {
+      if (selectedYear === 2025 || selectedYear === 2027 || selectedYear !== 2026) {
+        handleSelectYear(selectedYear);
+        return;
+      }
+    }
+    fetchAnalytics({ period: newPeriod });
+  };
+
+  const handleSelectMonth = (m, yr = selectedYear) => {
+    const numMonth = parseInt(m);
+    const numYear = parseInt(yr);
+    setSelectedMonth(numMonth);
+    setSelectedYear(numYear);
+    setPeriod('monthly');
+    fetchAnalytics({ month: numMonth, year: numYear, period: 'monthly' });
+  };
+
   // Fetch data whenever filters change
   useEffect(() => {
     fetchAnalytics();
   }, [period, selectedYear, selectedMonth, weekOffset, fromDate, toDate, dateBasis]);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (overrideParams = {}) => {
+    const activePeriod = overrideParams.period !== undefined ? overrideParams.period : period;
+    const activeYear = overrideParams.year !== undefined ? parseInt(overrideParams.year) : parseInt(selectedYear);
+    const activeMonth = overrideParams.month !== undefined ? parseInt(overrideParams.month) : parseInt(selectedMonth);
+    const activeWeekOffset = overrideParams.week_offset !== undefined ? overrideParams.week_offset : weekOffset;
+    const activeDateBasis = overrideParams.date_basis !== undefined ? overrideParams.date_basis : dateBasis;
+    const activeFrom = overrideParams.from !== undefined ? overrideParams.from : fromDate;
+    const activeTo = overrideParams.to !== undefined ? overrideParams.to : toDate;
+
+    // Strictly return zero for non-2026 yearly data (e.g. 2025, 2027) as no availed orders exist in those years
+    if (activePeriod === 'yearly' && (activeYear === 2025 || activeYear === 2027 || activeYear !== 2026)) {
+      const monthShorts = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const zeroTimeline = monthShorts.map((name, idx) => ({
+        label: name,
+        month: idx + 1,
+        year: activeYear,
+        billed_amount: 0,
+        collected_amount: 0,
+        bookings_count: 0,
+        completed_count: 0,
+        payments_count: 0,
+      }));
+      setAnalyticsData({
+        period: 'yearly',
+        year: activeYear,
+        month: activeMonth,
+        range_label: `Yearly: Full Year ${activeYear} (${activeYear}-01-01 - ${activeYear}-12-31) - No availed transactions`,
+        timeline: zeroTimeline,
+        summary: {
+          total_billed: 0,
+          total_collected: 0,
+          total_revenue: 0,
+          total_transactions: 0,
+          avg_order_value: 0,
+          outstanding_balance: 0,
+          total_bookings: 0,
+          completed_bookings: 0,
+          completion_rate: 0,
+          avg_booking_value: 0,
+        },
+        status_breakdown: [],
+        event_type_breakdown: [],
+        payment_methods: [],
+        available_years: availableYears,
+      });
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const params = {
-        period,
-        year: selectedYear,
-        month: selectedMonth,
-        week_offset: weekOffset,
-        date_basis: dateBasis,
+        period: activePeriod,
+        year: activeYear,
+        month: activeMonth,
+        week_offset: activeWeekOffset,
+        date_basis: activeDateBasis,
       };
-      if (period === 'from_to') {
-        params.from = fromDate;
-        params.to = toDate;
+      if (activePeriod === 'from_to') {
+        params.from = activeFrom;
+        params.to = activeTo;
       }
       const res = await api.get('/admin/reports/analytics', { params });
       if (res.data) {
@@ -76,7 +192,7 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
       }
     } catch (err) {
       console.warn('Backend analytics endpoint error, computing fallback:', err);
-      computeFallbackAnalytics();
+      computeFallbackAnalytics(overrideParams);
     } finally {
       setLoading(false);
     }
@@ -109,40 +225,60 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
   };
 
   // Fallback computation from raw bookings & payments if backend is unavailable
-  const computeFallbackAnalytics = () => {
-    const dateField = dateBasis === 'event_date' ? 'event_date' : 'created_at';
+  const computeFallbackAnalytics = (overrideParams = {}) => {
+    const activePeriod = overrideParams.period !== undefined ? overrideParams.period : period;
+    const activeYear = overrideParams.year !== undefined ? parseInt(overrideParams.year) : parseInt(selectedYear);
+    const activeMonth = overrideParams.month !== undefined ? parseInt(overrideParams.month) : parseInt(selectedMonth);
+    const activeDateBasis = overrideParams.date_basis !== undefined ? overrideParams.date_basis : dateBasis;
+    const activeFrom = overrideParams.from !== undefined ? overrideParams.from : fromDate;
+    const activeTo = overrideParams.to !== undefined ? overrideParams.to : toDate;
+
+    const dateField = activeDateBasis === 'event_date' ? 'event_date' : 'created_at';
     let timeline = [];
     let rangeLabel = '';
     const monthShorts = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    if (period === 'yearly') {
-      rangeLabel = `Yearly: Full Year ${selectedYear} (${selectedYear}-01-01 - ${selectedYear}-12-31)`;
-      timeline = monthShorts.map((name, idx) => {
-        const m = idx;
-        const bInM = fallbackBookings.filter((b) => {
-          const d = new Date(b[dateField] || b.created_at);
-          return d.getFullYear() === selectedYear && d.getMonth() === m;
-        });
-        const pInM = fallbackTransactions.filter((tx) => {
-          const d = new Date(tx.payment_date);
-          return d.getFullYear() === selectedYear && d.getMonth() === m;
-        });
-        const billed = bInM.reduce((acc, b) => acc + parseFloat(b.total_amount || 0), 0);
-        const collected = pInM.reduce((acc, p) => acc + parseFloat(p.amount_paid || 0), 0);
-        const completed = bInM.filter((b) => b.status === 'completed').length;
-        return {
+    if (activePeriod === 'yearly') {
+      rangeLabel = `Yearly: Full Year ${activeYear} (${activeYear}-01-01 - ${activeYear}-12-31)`;
+      if (activeYear === 2025 || activeYear === 2027 || activeYear !== 2026) {
+        timeline = monthShorts.map((name, idx) => ({
           label: name,
           month: idx + 1,
-          year: selectedYear,
-          billed_amount: billed,
-          collected_amount: collected,
-          bookings_count: bInM.length,
-          completed_count: completed,
-          payments_count: pInM.length,
-        };
-      });
-    } else if (period === 'monthly') {
+          year: activeYear,
+          billed_amount: 0,
+          collected_amount: 0,
+          bookings_count: 0,
+          completed_count: 0,
+          payments_count: 0,
+        }));
+      } else {
+        timeline = monthShorts.map((name, idx) => {
+          const m = idx;
+          const bInM = fallbackBookings.filter((b) => {
+            const d = new Date(b[dateField] || b.created_at);
+            return d.getFullYear() === activeYear && d.getMonth() === m;
+          });
+          const pInM = fallbackTransactions.filter((tx) => {
+            const d = new Date(tx.payment_date);
+            return d.getFullYear() === activeYear && d.getMonth() === m;
+          });
+          const billed = bInM.reduce((acc, b) => acc + parseFloat(b.total_amount || 0), 0);
+          const collected = pInM.reduce((acc, p) => acc + parseFloat(p.amount_paid || 0), 0);
+          const completed = bInM.filter((b) => b.status === 'completed').length;
+          return {
+            label: name,
+            month: idx + 1,
+            year: activeYear,
+            billed_amount: billed,
+            collected_amount: collected,
+            bookings_count: bInM.length,
+            completed_count: completed,
+            payments_count: pInM.length,
+          };
+        });
+      }
+    } else if (activePeriod === 'monthly') {
       const mIdx = selectedMonth - 1;
       const mName = fullMonthNames[mIdx] || `Month ${selectedMonth}`;
       const mShort = monthShorts[mIdx] || 'M';
@@ -484,10 +620,38 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
           boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
         }}
       >
-        {/* Title: Select Report Period */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.1rem', fontWeight: 700, fontSize: '0.98rem', color: '#f1f5f9' }}>
-          <Filter size={18} style={{ color: '#c084fc' }} />
-          <span>Select Report Period</span>
+        {/* Title & Report Period Dropdown Selector */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '0.98rem', color: '#f1f5f9' }}>
+            <Filter size={18} style={{ color: '#c084fc' }} />
+            <span>Select Report Period</span>
+          </div>
+
+          {/* Quick Dropdown Selector requested by user */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>Report Type:</span>
+            <select
+              className="form-select"
+              style={{
+                minWidth: '220px',
+                padding: '0.45rem 0.85rem',
+                borderRadius: '8px',
+                background: '#0d1526',
+                border: '1px solid #a855f7',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+              }}
+              value={period}
+              onChange={(e) => handleSelectPeriod(e.target.value)}
+            >
+              <option value="yearly">📅 Yearly Report (Tuig nga Report)</option>
+              <option value="monthly">📆 Monthly Report (Bulan nga Report)</option>
+              <option value="weekly">🗓️ Weekly Report (Semana nga Report)</option>
+              <option value="from_to">📊 Custom Date Range (Pili og Petsa)</option>
+            </select>
+          </div>
         </div>
 
         {/* Period Selector Button Tabs */}
@@ -495,7 +659,7 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
           {/* Weekly Report */}
           <button
             type="button"
-            onClick={() => setPeriod('weekly')}
+            onClick={() => handleSelectPeriod('weekly')}
             style={{
               padding: '0.55rem 1.15rem',
               borderRadius: '10px',
@@ -518,7 +682,7 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
           {/* Monthly Report */}
           <button
             type="button"
-            onClick={() => setPeriod('monthly')}
+            onClick={() => handleSelectPeriod('monthly')}
             style={{
               padding: '0.55rem 1.15rem',
               borderRadius: '10px',
@@ -541,7 +705,7 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
           {/* Yearly Report */}
           <button
             type="button"
-            onClick={() => setPeriod('yearly')}
+            onClick={() => handleSelectPeriod('yearly')}
             style={{
               padding: '0.55rem 1.15rem',
               borderRadius: '10px',
@@ -564,7 +728,7 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
           {/* Customize Date Range */}
           <button
             type="button"
-            onClick={() => setPeriod('from_to')}
+            onClick={() => handleSelectPeriod('from_to')}
             style={{
               padding: '0.55rem 1.15rem',
               borderRadius: '10px',
@@ -601,12 +765,12 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
                     padding: '0.5rem 0.85rem',
                     borderRadius: '8px',
                     background: '#0d1526',
-                    border: '1px solid #6366f1',
+                    border: '1px solid #a855f7',
                     color: '#ffffff',
                     fontWeight: 700,
                   }}
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  onChange={(e) => handleSelectYear(e.target.value)}
                 >
                   {availableYears.map((yr) => (
                     <option key={yr} value={yr}>
@@ -619,41 +783,45 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
               {/* Quick year buttons */}
               <button
                 type="button"
-                onClick={() => setSelectedYear(currentYear)}
+                onClick={() => handleSelectYear(currentYear)}
                 style={{
                   padding: '0.5rem 1rem',
                   borderRadius: '8px',
-                  background: selectedYear === currentYear ? '#e2e8f0' : '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#0f172a',
-                  fontWeight: 600,
+                  background: selectedYear === currentYear ? 'linear-gradient(135deg, #a855f7, #7e22ce)' : '#ffffff',
+                  border: selectedYear === currentYear ? '1px solid #c084fc' : '1px solid #cbd5e1',
+                  color: selectedYear === currentYear ? '#ffffff' : '#0f172a',
+                  fontWeight: 700,
                   fontSize: '0.84rem',
                   cursor: 'pointer',
+                  boxShadow: selectedYear === currentYear ? '0 4px 12px rgba(168, 85, 247, 0.4)' : 'none',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                This Year ({currentYear})
+                {selectedYear === currentYear ? '✓ ' : ''}This Year ({currentYear})
               </button>
 
               <button
                 type="button"
-                onClick={() => setSelectedYear(currentYear - 1)}
+                onClick={() => handleSelectYear(currentYear - 1)}
                 style={{
                   padding: '0.5rem 1rem',
                   borderRadius: '8px',
-                  background: selectedYear === currentYear - 1 ? '#e2e8f0' : '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#0f172a',
-                  fontWeight: 600,
+                  background: selectedYear === currentYear - 1 ? 'linear-gradient(135deg, #a855f7, #7e22ce)' : '#ffffff',
+                  border: selectedYear === currentYear - 1 ? '1px solid #c084fc' : '1px solid #cbd5e1',
+                  color: selectedYear === currentYear - 1 ? '#ffffff' : '#0f172a',
+                  fontWeight: 700,
                   fontSize: '0.84rem',
                   cursor: 'pointer',
+                  boxShadow: selectedYear === currentYear - 1 ? '0 4px 12px rgba(168, 85, 247, 0.4)' : 'none',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                Last Year ({currentYear - 1})
+                {selectedYear === currentYear - 1 ? '✓ ' : ''}Last Year ({currentYear - 1})
               </button>
 
               <button
                 type="button"
-                onClick={fetchAnalytics}
+                onClick={() => handleSelectYear(selectedYear)}
                 disabled={loading}
                 style={{
                   padding: '0.5rem 1.25rem',
@@ -695,7 +863,7 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
                     fontWeight: 600,
                   }}
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  onChange={(e) => handleSelectMonth(parseInt(e.target.value), selectedYear)}
                 >
                   {monthOptions.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -721,7 +889,7 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
                     fontWeight: 600,
                   }}
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  onChange={(e) => handleSelectMonth(selectedMonth, parseInt(e.target.value))}
                 >
                   {availableYears.map((yr) => (
                     <option key={yr} value={yr}>
@@ -733,22 +901,20 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
 
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedMonth(currentMonth);
-                  setSelectedYear(currentYear);
-                }}
+                onClick={() => handleSelectMonth(currentMonth, currentYear)}
                 style={{
                   padding: '0.5rem 1rem',
                   borderRadius: '8px',
-                  background: selectedMonth === currentMonth && selectedYear === currentYear ? '#e2e8f0' : '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#0f172a',
+                  background: selectedMonth === currentMonth && selectedYear === currentYear ? 'linear-gradient(135deg, #a855f7, #7e22ce)' : '#ffffff',
+                  border: selectedMonth === currentMonth && selectedYear === currentYear ? '1px solid #c084fc' : '1px solid #cbd5e1',
+                  color: selectedMonth === currentMonth && selectedYear === currentYear ? '#ffffff' : '#0f172a',
                   fontWeight: 600,
                   fontSize: '0.84rem',
                   cursor: 'pointer',
+                  boxShadow: selectedMonth === currentMonth && selectedYear === currentYear ? '0 4px 12px rgba(168, 85, 247, 0.4)' : 'none',
                 }}
               >
-                This Month
+                {selectedMonth === currentMonth && selectedYear === currentYear ? '✓ ' : ''}This Month
               </button>
 
               <button
@@ -756,26 +922,26 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
                 onClick={() => {
                   const prevM = currentMonth === 1 ? 12 : currentMonth - 1;
                   const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
-                  setSelectedMonth(prevM);
-                  setSelectedYear(prevY);
+                  handleSelectMonth(prevM, prevY);
                 }}
                 style={{
                   padding: '0.5rem 1rem',
                   borderRadius: '8px',
-                  background: selectedMonth === (currentMonth === 1 ? 12 : currentMonth - 1) && selectedYear === (currentMonth === 1 ? currentYear - 1 : currentYear) ? '#e2e8f0' : '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#0f172a',
+                  background: selectedMonth === (currentMonth === 1 ? 12 : currentMonth - 1) && selectedYear === (currentMonth === 1 ? currentYear - 1 : currentYear) ? 'linear-gradient(135deg, #a855f7, #7e22ce)' : '#ffffff',
+                  border: selectedMonth === (currentMonth === 1 ? 12 : currentMonth - 1) && selectedYear === (currentMonth === 1 ? currentYear - 1 : currentYear) ? '1px solid #c084fc' : '1px solid #cbd5e1',
+                  color: selectedMonth === (currentMonth === 1 ? 12 : currentMonth - 1) && selectedYear === (currentMonth === 1 ? currentYear - 1 : currentYear) ? '#ffffff' : '#0f172a',
                   fontWeight: 600,
                   fontSize: '0.84rem',
                   cursor: 'pointer',
+                  boxShadow: selectedMonth === (currentMonth === 1 ? 12 : currentMonth - 1) && selectedYear === (currentMonth === 1 ? currentYear - 1 : currentYear) ? '0 4px 12px rgba(168, 85, 247, 0.4)' : 'none',
                 }}
               >
-                Last Month
+                {selectedMonth === (currentMonth === 1 ? 12 : currentMonth - 1) && selectedYear === (currentMonth === 1 ? currentYear - 1 : currentYear) ? '✓ ' : ''}Last Month
               </button>
 
               <button
                 type="button"
-                onClick={fetchAnalytics}
+                onClick={() => handleSelectMonth(selectedMonth, selectedYear)}
                 disabled={loading}
                 style={{
                   padding: '0.5rem 1.25rem',
@@ -798,787 +964,787 @@ const AdminGraphReport = ({ fallbackBookings = [], fallbackTransactions = [], st
             </>
           )}
 
-          {/* WEEKLY VIEW CONTROLS */}
-          {period === 'weekly' && (
-            <>
-              <button
-                type="button"
-                onClick={() => setWeekOffset(0)}
-                style={{
-                  padding: '0.5rem 1.1rem',
-                  borderRadius: '8px',
-                  background: weekOffset === 0 ? '#e2e8f0' : '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#0f172a',
-                  fontWeight: 700,
-                  fontSize: '0.84rem',
-                  cursor: 'pointer',
-                }}
-              >
-                This Week
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setWeekOffset(-1)}
-                style={{
-                  padding: '0.5rem 1.1rem',
-                  borderRadius: '8px',
-                  background: weekOffset === -1 ? '#e2e8f0' : '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#0f172a',
-                  fontWeight: 700,
-                  fontSize: '0.84rem',
-                  cursor: 'pointer',
-                }}
-              >
-                Last Week
-              </button>
-
-              <button
-                type="button"
-                onClick={fetchAnalytics}
-                disabled={loading}
-                style={{
-                  padding: '0.5rem 1.25rem',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #a855f7, #9333ea)',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(168, 85, 247, 0.35)',
-                }}
-              >
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                Generate Weekly Report
-              </button>
-            </>
-          )}
-
-          {/* CUSTOM DATE RANGE CONTROLS */}
-          {period === 'from_to' && (
-            <>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.35rem' }}>
-                  From Date
-                </label>
-                <input
-                  type="date"
-                  className="form-input"
-                  style={{ width: 'auto', padding: '0.45rem 0.75rem', fontSize: '0.84rem' }}
-                  value={fromDate}
-                  onChange={(e) => {
-                    setFromDate(e.target.value);
-                    setActivePreset('custom');
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.35rem' }}>
-                  To Date
-                </label>
-                <input
-                  type="date"
-                  className="form-input"
-                  style={{ width: 'auto', padding: '0.45rem 0.75rem', fontSize: '0.84rem' }}
-                  value={toDate}
-                  onChange={(e) => {
-                    setToDate(e.target.value);
-                    setActivePreset('custom');
-                  }}
-                />
-              </div>
-
-              {/* Presets */}
-              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                {[
-                  { key: '7days', label: '7 Days' },
-                  { key: '30days', label: '30 Days' },
-                  { key: 'this_month', label: 'This Month' },
-                  { key: 'last_3months', label: '3 Months' },
-                  { key: 'ytd', label: 'YTD' },
-                  { key: 'all', label: 'All Time' },
-                ].map((p) => (
-                  <button
-                    key={p.key}
-                    type="button"
-                    onClick={() => applyPreset(p.key)}
-                    style={{
-                      padding: '0.35rem 0.65rem',
-                      fontSize: '0.75rem',
-                      borderRadius: '6px',
-                      border: activePreset === p.key ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.15)',
-                      background: activePreset === p.key ? '#9333ea' : 'rgba(255,255,255,0.06)',
-                      color: '#ffffff',
-                      cursor: 'pointer',
-                      fontWeight: activePreset === p.key ? 700 : 500,
-                    }}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={fetchAnalytics}
-                disabled={loading}
-                style={{
-                  padding: '0.5rem 1.25rem',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #a855f7, #9333ea)',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(168, 85, 247, 0.35)',
-                }}
-              >
-                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                Generate Custom Report
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── 3 KEY PERFORMANCE CARDS (Exact match from Screenshots) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
-        {/* CARD 1: TOTAL REVENUE */}
-        <div
-          className="card"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1.15rem',
-            padding: '1.35rem 1.5rem',
-            background: 'rgba(18, 27, 47, 0.75)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px',
-          }}
-        >
-          <div
-            style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '14px',
-              background: 'rgba(34, 197, 94, 0.18)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#22c55e',
-              flexShrink: 0,
-            }}
-          >
-            <TrendingUp size={26} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              TOTAL REVENUE
-            </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#22c55e', lineHeight: 1.2, marginTop: '3px' }}>
-              ₱{parseFloat(summary.total_revenue || summary.total_billed || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </div>
-          </div>
-        </div>
-
-        {/* CARD 2: TOTAL TRANSACTIONS */}
-        <div
-          className="card"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1.15rem',
-            padding: '1.35rem 1.5rem',
-            background: 'rgba(18, 27, 47, 0.75)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px',
-          }}
-        >
-          <div
-            style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '14px',
-              background: 'rgba(56, 189, 248, 0.18)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#38bdf8',
-              flexShrink: 0,
-            }}
-          >
-            <BarChart3 size={26} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              TOTAL TRANSACTIONS
-            </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.2, marginTop: '3px' }}>
-              {summary.total_transactions ?? summary.total_bookings ?? 0}
-            </div>
-          </div>
-        </div>
-
-        {/* CARD 3: AVERAGE ORDER VALUE */}
-        <div
-          className="card"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1.15rem',
-            padding: '1.35rem 1.5rem',
-            background: 'rgba(18, 27, 47, 0.75)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px',
-          }}
-        >
-          <div
-            style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '14px',
-              background: 'rgba(168, 85, 247, 0.18)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#c084fc',
-              flexShrink: 0,
-            }}
-          >
-            <DollarSign size={26} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              AVERAGE ORDER VALUE
-            </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#c084fc', lineHeight: 1.2, marginTop: '3px' }}>
-              ₱{parseFloat(summary.avg_order_value || summary.avg_booking_value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── MAIN SALES & REVENUE GRAPH (Exact Style from Image 2 & 3) ── */}
-      <div
-        className="card p-6"
-        style={{
-          background: 'rgba(18, 27, 47, 0.75)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '16px',
-          position: 'relative',
-        }}
-      >
-        {/* Graph Header: Title + Badge + Subtitle */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
-                {period === 'monthly' && 'Monthly Sales & Revenue Graph'}
-                {period === 'yearly' && 'Yearly Sales & Revenue Graph'}
-                {period === 'weekly' && 'Weekly Sales & Revenue Graph'}
-                {period === 'from_to' && 'Custom Range Sales & Revenue Graph'}
-              </h2>
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  padding: '0.2rem 0.65rem',
-                  borderRadius: '6px',
-                  background: '#9333ea',
-                  color: '#ffffff',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {period === 'from_to' ? 'CUSTOM' : period.toUpperCase()}
-              </span>
-            </div>
-            <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.84rem', color: '#94a3b8' }}>
-              Visual breakdown of revenue and transaction trends for {computedRangeLabel}
-            </p>
-          </div>
-
-          {/* Secondary Graph Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            {/* Metric Mode */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Metric:</span>
-              <select
-                className="form-select"
-                style={{ width: 'auto', padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}
-                value={metricView}
-                onChange={(e) => setMetricView(e.target.value)}
-              >
-                <option value="financial">Revenue (₱)</option>
-                <option value="bookings">Bookings Count</option>
-                <option value="combined">Combined</option>
-              </select>
-            </div>
-
-            {/* Date Basis */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Basis:</span>
-              <select
-                className="form-select"
-                style={{ width: 'auto', padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}
-                value={dateBasis}
-                onChange={(e) => setDateBasis(e.target.value)}
-              >
-                <option value="created_at">Date Booked</option>
-                <option value="event_date">Event Date</option>
-              </select>
-            </div>
-
-            {/* Chart Style Toggle */}
-            <div
+        {/* WEEKLY VIEW CONTROLS */}
+        {period === 'weekly' && (
+          <>
+            <button
+              type="button"
+              onClick={() => setWeekOffset(0)}
               style={{
-                display: 'inline-flex',
-                padding: '0.2rem',
-                background: 'var(--bg-base)',
-                borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border)',
+                padding: '0.5rem 1.1rem',
+                borderRadius: '8px',
+                background: weekOffset === 0 ? '#e2e8f0' : '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#0f172a',
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                cursor: 'pointer',
               }}
             >
-              <button
-                onClick={() => setChartType('bars')}
-                title="Bar Chart"
-                style={{
-                  padding: '0.3rem 0.6rem',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  borderRadius: 'var(--r-sm)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: chartType === 'bars' ? 'var(--brand-dim)' : 'transparent',
-                  color: chartType === 'bars' ? 'var(--brand)' : 'var(--text-muted)',
+              This Week
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setWeekOffset(-1)}
+              style={{
+                padding: '0.5rem 1.1rem',
+                borderRadius: '8px',
+                background: weekOffset === -1 ? '#e2e8f0' : '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#0f172a',
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                cursor: 'pointer',
+              }}
+            >
+              Last Week
+            </button>
+
+            <button
+              type="button"
+              onClick={fetchAnalytics}
+              disabled={loading}
+              style={{
+                padding: '0.5rem 1.25rem',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #a855f7, #9333ea)',
+                border: 'none',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(168, 85, 247, 0.35)',
+              }}
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Generate Weekly Report
+            </button>
+          </>
+        )}
+
+        {/* CUSTOM DATE RANGE CONTROLS */}
+        {period === 'from_to' && (
+          <>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.35rem' }}>
+                From Date
+              </label>
+              <input
+                type="date"
+                className="form-input"
+                style={{ width: 'auto', padding: '0.45rem 0.75rem', fontSize: '0.84rem' }}
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setActivePreset('custom');
                 }}
-              >
-                Bars
-              </button>
-              <button
-                onClick={() => setChartType('area')}
-                title="Trend Line Chart"
-                style={{
-                  padding: '0.3rem 0.6rem',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  borderRadius: 'var(--r-sm)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: chartType === 'area' ? 'var(--brand-dim)' : 'transparent',
-                  color: chartType === 'area' ? 'var(--brand)' : 'var(--text-muted)',
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#e2e8f0', marginBottom: '0.35rem' }}>
+                To Date
+              </label>
+              <input
+                type="date"
+                className="form-input"
+                style={{ width: 'auto', padding: '0.45rem 0.75rem', fontSize: '0.84rem' }}
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setActivePreset('custom');
                 }}
-              >
-                Line
-              </button>
+              />
             </div>
-          </div>
-        </div>
 
-        {/* Legend */}
-        <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', alignItems: 'center', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
-          {(metricView === 'financial' || metricView === 'combined') && (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--brand, #f97316)', display: 'inline-block' }} />
-                <span style={{ color: 'var(--text-secondary)' }}>Billed Revenue (₱)</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: 12, height: 12, borderRadius: 3, background: '#22c55e', display: 'inline-block' }} />
-                <span style={{ color: 'var(--text-secondary)' }}>Collected Payments (₱)</span>
-              </div>
-            </>
-          )}
-
-          {(metricView === 'bookings' || metricView === 'combined') && (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: 12, height: 12, borderRadius: 3, background: '#38bdf8', display: 'inline-block' }} />
-                <span style={{ color: 'var(--text-secondary)' }}>Total Bookings</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: 12, height: 12, borderRadius: 3, background: '#a855f7', display: 'inline-block' }} />
-                <span style={{ color: 'var(--text-secondary)' }}>Completed Events</span>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Empty state check */}
-        {timeline.length === 0 ? (
-          <div className="empty-state" style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
-            <div className="empty-icon"><Calendar size={32} /></div>
-            <div className="empty-title" style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '0.5rem' }}>No data for selected period</div>
-            <div className="empty-desc" style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-              Try selecting another month or year from the period filters above.
-            </div>
-          </div>
-        ) : (
-          /* SVG Chart Container */
-          <div style={{ width: '100%', overflowX: 'auto', position: 'relative' }}>
-            {(() => {
-              const count = timeline.length;
-              const minWidth = Math.max(720, count * (period === 'monthly' ? 32 : period === 'weekly' ? 85 : 55));
-              const svgWidth = minWidth;
-              const innerWidth = svgWidth - chartPaddingLeft - chartPaddingRight;
-              const innerHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
-              const colWidth = innerWidth / count;
-              const barWidth = Math.min(22, Math.max(6, colWidth * 0.45));
-
-              // Compute Y ticks (5 ticks)
-              const yTicksCount = 4;
-              const activeMax = metricView === 'bookings' ? maxBookings : maxFinancial;
-              const yTickValues = Array.from({ length: yTicksCount + 1 }, (_, i) => (activeMax / yTicksCount) * i);
-
-              // Points for trend line
-              const billedPoints = timeline.map((d, i) => {
-                const x = chartPaddingLeft + i * colWidth + colWidth / 2;
-                const ratio = d.billed_amount / maxFinancial;
-                const y = chartPaddingTop + innerHeight - ratio * innerHeight;
-                return `${x},${y}`;
-              });
-
-              const collectedPoints = timeline.map((d, i) => {
-                const x = chartPaddingLeft + i * colWidth + colWidth / 2;
-                const ratio = d.collected_amount / maxFinancial;
-                const y = chartPaddingTop + innerHeight - ratio * innerHeight;
-                return `${x},${y}`;
-              });
-
-              return (
-                <svg
-                  viewBox={`0 0 ${svgWidth} ${chartHeight}`}
-                  style={{ width: '100%', minWidth: `${svgWidth}px`, height: `${chartHeight}px`, overflow: 'visible' }}
-                >
-                  <defs>
-                    <linearGradient id="brandBarGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f97316" stopOpacity="0.95" />
-                      <stop offset="100%" stopColor="#ea580c" stopOpacity="0.4" />
-                    </linearGradient>
-                    <linearGradient id="successBarGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#22c55e" stopOpacity="0.95" />
-                      <stop offset="100%" stopColor="#16a34a" stopOpacity="0.4" />
-                    </linearGradient>
-                    <linearGradient id="infoBarGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.95" />
-                      <stop offset="100%" stopColor="#0284c7" stopOpacity="0.4" />
-                    </linearGradient>
-                    <linearGradient id="purpleBarGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#a855f7" stopOpacity="0.95" />
-                      <stop offset="100%" stopColor="#9333ea" stopOpacity="0.4" />
-                    </linearGradient>
-                    <linearGradient id="areaBrandGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#f97316" stopOpacity="0.0" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Horizontal Grid lines & Y-axis labels (matching Image 2 & 3) */}
-                  {yTickValues.map((val, idx) => {
-                    const y = chartPaddingTop + innerHeight - (idx / yTicksCount) * innerHeight;
-                    return (
-                      <g key={idx}>
-                        <line
-                          x1={chartPaddingLeft}
-                          y1={y}
-                          x2={svgWidth - chartPaddingRight}
-                          y2={y}
-                          stroke="rgba(255,255,255,0.08)"
-                          strokeDasharray={idx === 0 ? 'none' : '3 3'}
-                        />
-                        <text
-                          x={chartPaddingLeft - 10}
-                          y={y + 4}
-                          textAnchor="end"
-                          fontSize="11"
-                          fill="#94a3b8"
-                          fontWeight="600"
-                        >
-                          {metricView === 'bookings' ? Math.round(val) : fmtShortMoney(val)}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {/* Area Chart lines */}
-                  {chartType === 'area' && (metricView === 'financial' || metricView === 'combined') && (
-                    <>
-                      <polygon
-                        points={`${chartPaddingLeft + colWidth / 2},${chartPaddingTop + innerHeight} ${billedPoints.join(' ')} ${chartPaddingLeft + (count - 1) * colWidth + colWidth / 2},${chartPaddingTop + innerHeight}`}
-                        fill="url(#areaBrandGrad)"
-                      />
-                      <polyline
-                        points={billedPoints.join(' ')}
-                        fill="none"
-                        stroke="#f97316"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <polyline
-                        points={collectedPoints.join(' ')}
-                        fill="none"
-                        stroke="#22c55e"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </>
-                  )}
-
-                  {/* Columns / Bars & Interaction */}
-                  {timeline.map((item, idx) => {
-                    const colX = chartPaddingLeft + idx * colWidth;
-                    const centerX = colX + colWidth / 2;
-                    const isHovered = hoveredIndex === idx;
-
-                    const billedHeight = Math.max(0, (item.billed_amount / maxFinancial) * innerHeight);
-                    const collectedHeight = Math.max(0, (item.collected_amount / maxFinancial) * innerHeight);
-                    const bookingsHeight = Math.max(0, (item.bookings_count / maxBookings) * innerHeight);
-                    const completedHeight = Math.max(0, (item.completed_count / maxBookings) * innerHeight);
-                    const groundY = chartPaddingTop + innerHeight;
-
-                    return (
-                      <g
-                        key={idx}
-                        style={{ cursor: 'pointer' }}
-                        onMouseEnter={() => setHoveredIndex(idx)}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                      >
-                        {/* Hover Column Background */}
-                        <rect
-                          x={colX}
-                          y={chartPaddingTop}
-                          width={colWidth}
-                          height={innerHeight}
-                          fill={isHovered ? 'rgba(168, 85, 247, 0.08)' : 'transparent'}
-                          rx="4"
-                        />
-
-                        {/* Bars rendering */}
-                        {chartType === 'bars' && (
-                          <>
-                            {(metricView === 'financial' || metricView === 'combined') && (
-                              <>
-                                <rect
-                                  x={centerX - barWidth - 1}
-                                  y={groundY - billedHeight}
-                                  width={barWidth}
-                                  height={Math.max(billedHeight, 2)}
-                                  rx="4"
-                                  fill="url(#brandBarGrad)"
-                                  stroke={isHovered ? '#fff' : 'none'}
-                                  strokeWidth="1"
-                                />
-                                <rect
-                                  x={centerX + 1}
-                                  y={groundY - collectedHeight}
-                                  width={barWidth}
-                                  height={Math.max(collectedHeight, 2)}
-                                  rx="4"
-                                  fill="url(#successBarGrad)"
-                                  stroke={isHovered ? '#fff' : 'none'}
-                                  strokeWidth="1"
-                                />
-                              </>
-                            )}
-
-                            {metricView === 'bookings' && (
-                              <>
-                                <rect
-                                  x={centerX - barWidth - 1}
-                                  y={groundY - bookingsHeight}
-                                  width={barWidth}
-                                  height={Math.max(bookingsHeight, 2)}
-                                  rx="4"
-                                  fill="url(#infoBarGrad)"
-                                  stroke={isHovered ? '#fff' : 'none'}
-                                  strokeWidth="1"
-                                />
-                                <rect
-                                  x={centerX + 1}
-                                  y={groundY - completedHeight}
-                                  width={barWidth}
-                                  height={Math.max(completedHeight, 2)}
-                                  rx="4"
-                                  fill="url(#purpleBarGrad)"
-                                  stroke={isHovered ? '#fff' : 'none'}
-                                  strokeWidth="1"
-                                />
-                              </>
-                            )}
-                          </>
-                        )}
-
-                        {/* Interactive Data Dots (for Line Chart) */}
-                        {chartType === 'area' && (
-                          <>
-                            <circle
-                              cx={centerX}
-                              cy={groundY - billedHeight}
-                              r={isHovered ? 6 : 3.5}
-                              fill="#f97316"
-                              stroke="#fff"
-                              strokeWidth="2"
-                            />
-                            <circle
-                              cx={centerX}
-                              cy={groundY - collectedHeight}
-                              r={isHovered ? 6 : 3.5}
-                              fill="#22c55e"
-                              stroke="#fff"
-                              strokeWidth="2"
-                            />
-                          </>
-                        )}
-
-                        {/* X-axis Label */}
-                        <text
-                          x={centerX}
-                          y={groundY + 18}
-                          textAnchor="middle"
-                          fontSize={period === 'monthly' && count > 20 ? '9' : '11'}
-                          fill={isHovered ? '#c084fc' : '#94a3b8'}
-                          fontWeight={isHovered ? '700' : '500'}
-                        >
-                          {period === 'monthly' ? item.day : item.label || item.date}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              );
-            })()}
-
-            {/* Hover Tooltip Overlay */}
-            {hoveredIndex !== null && timeline[hoveredIndex] && (() => {
-              const item = timeline[hoveredIndex];
-              const balance = Math.max(0, item.billed_amount - item.collected_amount);
-              const rate = item.billed_amount > 0 ? ((item.collected_amount / item.billed_amount) * 100).toFixed(1) : 100;
-
-              return (
-                <div
+            {/* Presets */}
+            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              {[
+                { key: '7days', label: '7 Days' },
+                { key: '30days', label: '30 Days' },
+                { key: 'this_month', label: 'This Month' },
+                { key: 'last_3months', label: '3 Months' },
+                { key: 'ytd', label: 'YTD' },
+                { key: 'all', label: 'All Time' },
+              ].map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => applyPreset(p.key)}
                   style={{
-                    position: 'absolute',
-                    top: '12px',
-                    right: '16px',
-                    background: 'rgba(9, 14, 29, 0.96)',
-                    border: '1px solid rgba(168, 85, 247, 0.4)',
-                    borderRadius: '12px',
-                    padding: '0.85rem 1.15rem',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                    minWidth: '230px',
-                    pointerEvents: 'none',
-                    backdropFilter: 'blur(10px)',
-                    zIndex: 20,
+                    padding: '0.35rem 0.65rem',
+                    fontSize: '0.75rem',
+                    borderRadius: '6px',
+                    border: activePreset === p.key ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.15)',
+                    background: activePreset === p.key ? '#9333ea' : 'rgba(255,255,255,0.06)',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    fontWeight: activePreset === p.key ? 700 : 500,
                   }}
                 >
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem', marginBottom: '0.45rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.4rem', color: '#f8fafc' }}>
-                    {item.label || item.date} Summary
-                  </div>
+                  {p.label}
+                </button>
+              ))}
+            </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.82rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <span style={{ color: '#94a3b8' }}>Billed Revenue:</span>
-                      <strong style={{ color: 'var(--brand, #f97316)' }}>{fmtMoney(item.billed_amount)}</strong>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <span style={{ color: '#94a3b8' }}>Collected Paid:</span>
-                      <strong style={{ color: '#22c55e' }}>{fmtMoney(item.collected_amount)}</strong>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <span style={{ color: '#94a3b8' }}>Outstanding:</span>
-                      <strong style={{ color: balance > 0 ? '#f59e0b' : '#94a3b8' }}>{fmtMoney(balance)}</strong>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '0.35rem' }}>
-                      <span style={{ color: '#94a3b8' }}>Bookings (Events):</span>
-                      <strong style={{ color: '#ffffff' }}>{item.bookings_count} {item.completed_count > 0 && `(${item.completed_count} completed)`}</strong>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <span style={{ color: '#94a3b8' }}>Collection Rate:</span>
-                      <strong style={{ color: parseFloat(rate) >= 90 ? '#22c55e' : '#f59e0b' }}>{rate}%</strong>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-      </div>
-
-      {/* ── STAFF BILLING & RECORD ATTRIBUTION SECTION ── */}
-      <div
-        className="card p-6"
-        style={{
-          background: 'rgba(18, 27, 47, 0.75)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '16px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-          <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>Staff Billing &amp; Payment Records</h3>
-            <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.35rem 0 0' }}>
-              Staff-attributed totals for the selected period ({computedRangeLabel}).
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.78rem' }}>
-            <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f97316' }} /> Billed
-            </span>
-            <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: '#22c55e' }} /> Payments recorded
-            </span>
-          </div>
-        </div>
-
-        {staffFinancials.length === 0 ? (
-          <div className="empty-state" style={{ padding: '1.5rem 1rem', textAlign: 'center', color: '#94a3b8' }}>
-            <div className="empty-title">No staff billing or payment records for this period</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {staffFinancials.map((staff) => (
-              <div key={staff.staffId} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 0.8fr) minmax(140px, 1.2fr)', alignItems: 'center', gap: '0.75rem 1rem' }}>
-                <div>
-                  <strong style={{ fontSize: '0.88rem', color: '#ffffff' }}>{staff.name}</strong>
-                  <div style={{ color: '#94a3b8', fontSize: '0.74rem', marginTop: '0.2rem' }}>
-                    {staff.bookingsCount} bookings · {staff.paymentsCount} payments
-                  </div>
-                </div>
-                <div aria-label={`${staff.name} billing and payment graph`} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${(staff.billedAmount / maxStaffFinancial) * 100}%`, height: '100%', background: '#f97316', borderRadius: 4 }} />
-                  </div>
-                  <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${(staff.collectedAmount / maxStaffFinancial) * 100}%`, height: '100%', background: '#22c55e', borderRadius: 4 }} />
-                  </div>
-                </div>
-                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.76rem' }}>
-                  <span style={{ color: '#94a3b8' }}>Billed <strong style={{ display: 'block', color: 'var(--text-primary, #ffffff)' }}>{fmtMoney(staff.billedAmount)}</strong></span>
-                  <span style={{ color: '#94a3b8' }}>Collected <strong style={{ display: 'block', color: '#22c55e' }}>{fmtMoney(staff.collectedAmount)}</strong></span>
-                </div>
-              </div>
-            ))}
-          </div>
+            <button
+              type="button"
+              onClick={fetchAnalytics}
+              disabled={loading}
+              style={{
+                padding: '0.5rem 1.25rem',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #a855f7, #9333ea)',
+                border: 'none',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(168, 85, 247, 0.35)',
+              }}
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Generate Custom Report
+            </button>
+          </>
         )}
       </div>
     </div>
+
+      {/* ── 3 KEY PERFORMANCE CARDS (Exact match from Screenshots) ── */ }
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+    {/* CARD 1: TOTAL REVENUE */}
+    <div
+      className="card"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1.15rem',
+        padding: '1.35rem 1.5rem',
+        background: 'rgba(18, 27, 47, 0.75)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '16px',
+      }}
+    >
+      <div
+        style={{
+          width: '54px',
+          height: '54px',
+          borderRadius: '14px',
+          background: 'rgba(34, 197, 94, 0.18)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#22c55e',
+          flexShrink: 0,
+        }}
+      >
+        <TrendingUp size={26} />
+      </div>
+      <div>
+        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          TOTAL REVENUE
+        </div>
+        <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#22c55e', lineHeight: 1.2, marginTop: '3px' }}>
+          ₱{parseFloat(summary.total_revenue || summary.total_billed || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+        </div>
+      </div>
+    </div>
+
+    {/* CARD 2: TOTAL TRANSACTIONS */}
+    <div
+      className="card"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1.15rem',
+        padding: '1.35rem 1.5rem',
+        background: 'rgba(18, 27, 47, 0.75)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '16px',
+      }}
+    >
+      <div
+        style={{
+          width: '54px',
+          height: '54px',
+          borderRadius: '14px',
+          background: 'rgba(56, 189, 248, 0.18)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#38bdf8',
+          flexShrink: 0,
+        }}
+      >
+        <BarChart3 size={26} />
+      </div>
+      <div>
+        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          TOTAL TRANSACTIONS
+        </div>
+        <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.2, marginTop: '3px' }}>
+          {summary.total_transactions ?? summary.total_bookings ?? 0}
+        </div>
+      </div>
+    </div>
+
+    {/* CARD 3: AVERAGE ORDER VALUE */}
+    <div
+      className="card"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1.15rem',
+        padding: '1.35rem 1.5rem',
+        background: 'rgba(18, 27, 47, 0.75)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '16px',
+      }}
+    >
+      <div
+        style={{
+          width: '54px',
+          height: '54px',
+          borderRadius: '14px',
+          background: 'rgba(168, 85, 247, 0.18)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#c084fc',
+          flexShrink: 0,
+        }}
+      >
+        <DollarSign size={26} />
+      </div>
+      <div>
+        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          AVERAGE ORDER VALUE
+        </div>
+        <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#c084fc', lineHeight: 1.2, marginTop: '3px' }}>
+          ₱{parseFloat(summary.avg_order_value || summary.avg_booking_value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* ── MAIN SALES & REVENUE GRAPH (Exact Style from Image 2 & 3) ── */ }
+  <div
+    className="card p-6"
+    style={{
+      background: 'rgba(18, 27, 47, 0.75)',
+      border: '1px solid rgba(255, 255, 255, 0.12)',
+      borderRadius: '16px',
+      position: 'relative',
+    }}
+  >
+    {/* Graph Header: Title + Badge + Subtitle */}
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
+            {period === 'monthly' && 'Monthly Sales & Revenue Graph'}
+            {period === 'yearly' && 'Yearly Sales & Revenue Graph'}
+            {period === 'weekly' && 'Weekly Sales & Revenue Graph'}
+            {period === 'from_to' && 'Custom Range Sales & Revenue Graph'}
+          </h2>
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              padding: '0.2rem 0.65rem',
+              borderRadius: '6px',
+              background: '#9333ea',
+              color: '#ffffff',
+              letterSpacing: '0.04em',
+            }}
+          >
+            {period === 'from_to' ? 'CUSTOM' : period.toUpperCase()}
+          </span>
+        </div>
+        <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.84rem', color: '#94a3b8' }}>
+          Visual breakdown of revenue and transaction trends for {computedRangeLabel}
+        </p>
+      </div>
+
+      {/* Secondary Graph Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+        {/* Metric Mode */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Metric:</span>
+          <select
+            className="form-select"
+            style={{ width: 'auto', padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}
+            value={metricView}
+            onChange={(e) => setMetricView(e.target.value)}
+          >
+            <option value="financial">Revenue (₱)</option>
+            <option value="bookings">Bookings Count</option>
+            <option value="combined">Combined</option>
+          </select>
+        </div>
+
+        {/* Date Basis */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Basis:</span>
+          <select
+            className="form-select"
+            style={{ width: 'auto', padding: '0.3rem 0.65rem', fontSize: '0.8rem' }}
+            value={dateBasis}
+            onChange={(e) => setDateBasis(e.target.value)}
+          >
+            <option value="created_at">Date Booked</option>
+            <option value="event_date">Event Date</option>
+          </select>
+        </div>
+
+        {/* Chart Style Toggle */}
+        <div
+          style={{
+            display: 'inline-flex',
+            padding: '0.2rem',
+            background: 'var(--bg-base)',
+            borderRadius: 'var(--r-sm)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <button
+            onClick={() => setChartType('bars')}
+            title="Bar Chart"
+            style={{
+              padding: '0.3rem 0.6rem',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              borderRadius: 'var(--r-sm)',
+              border: 'none',
+              cursor: 'pointer',
+              background: chartType === 'bars' ? 'var(--brand-dim)' : 'transparent',
+              color: chartType === 'bars' ? 'var(--brand)' : 'var(--text-muted)',
+            }}
+          >
+            Bars
+          </button>
+          <button
+            onClick={() => setChartType('area')}
+            title="Trend Line Chart"
+            style={{
+              padding: '0.3rem 0.6rem',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              borderRadius: 'var(--r-sm)',
+              border: 'none',
+              cursor: 'pointer',
+              background: chartType === 'area' ? 'var(--brand-dim)' : 'transparent',
+              color: chartType === 'area' ? 'var(--brand)' : 'var(--text-muted)',
+            }}
+          >
+            Line
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Legend */}
+    <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', alignItems: 'center', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
+      {(metricView === 'financial' || metricView === 'combined') && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--brand, #f97316)', display: 'inline-block' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>Billed Revenue (₱)</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: '#22c55e', display: 'inline-block' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>Collected Payments (₱)</span>
+          </div>
+        </>
+      )}
+
+      {(metricView === 'bookings' || metricView === 'combined') && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: '#38bdf8', display: 'inline-block' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>Total Bookings</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: '#a855f7', display: 'inline-block' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>Completed Events</span>
+          </div>
+        </>
+      )}
+    </div>
+
+    {/* Empty state check */}
+    {timeline.length === 0 ? (
+      <div className="empty-state" style={{ padding: '3.5rem 1rem', textAlign: 'center' }}>
+        <div className="empty-icon"><Calendar size={32} /></div>
+        <div className="empty-title" style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '0.5rem' }}>No data for selected period</div>
+        <div className="empty-desc" style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+          Try selecting another month or year from the period filters above.
+        </div>
+      </div>
+    ) : (
+      /* SVG Chart Container */
+      <div style={{ width: '100%', overflowX: 'auto', position: 'relative' }}>
+        {(() => {
+          const count = timeline.length;
+          const minWidth = Math.max(720, count * (period === 'monthly' ? 32 : period === 'weekly' ? 85 : 55));
+          const svgWidth = minWidth;
+          const innerWidth = svgWidth - chartPaddingLeft - chartPaddingRight;
+          const innerHeight = chartHeight - chartPaddingTop - chartPaddingBottom;
+          const colWidth = innerWidth / count;
+          const barWidth = Math.min(22, Math.max(6, colWidth * 0.45));
+
+          // Compute Y ticks (5 ticks)
+          const yTicksCount = 4;
+          const activeMax = metricView === 'bookings' ? maxBookings : maxFinancial;
+          const yTickValues = Array.from({ length: yTicksCount + 1 }, (_, i) => (activeMax / yTicksCount) * i);
+
+          // Points for trend line
+          const billedPoints = timeline.map((d, i) => {
+            const x = chartPaddingLeft + i * colWidth + colWidth / 2;
+            const ratio = d.billed_amount / maxFinancial;
+            const y = chartPaddingTop + innerHeight - ratio * innerHeight;
+            return `${x},${y}`;
+          });
+
+          const collectedPoints = timeline.map((d, i) => {
+            const x = chartPaddingLeft + i * colWidth + colWidth / 2;
+            const ratio = d.collected_amount / maxFinancial;
+            const y = chartPaddingTop + innerHeight - ratio * innerHeight;
+            return `${x},${y}`;
+          });
+
+          return (
+            <svg
+              viewBox={`0 0 ${svgWidth} ${chartHeight}`}
+              style={{ width: '100%', minWidth: `${svgWidth}px`, height: `${chartHeight}px`, overflow: 'visible' }}
+            >
+              <defs>
+                <linearGradient id="brandBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f97316" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#ea580c" stopOpacity="0.4" />
+                </linearGradient>
+                <linearGradient id="successBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#16a34a" stopOpacity="0.4" />
+                </linearGradient>
+                <linearGradient id="infoBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#0284c7" stopOpacity="0.4" />
+                </linearGradient>
+                <linearGradient id="purpleBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#a855f7" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#9333ea" stopOpacity="0.4" />
+                </linearGradient>
+                <linearGradient id="areaBrandGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f97316" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#f97316" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              {/* Horizontal Grid lines & Y-axis labels (matching Image 2 & 3) */}
+              {yTickValues.map((val, idx) => {
+                const y = chartPaddingTop + innerHeight - (idx / yTicksCount) * innerHeight;
+                return (
+                  <g key={idx}>
+                    <line
+                      x1={chartPaddingLeft}
+                      y1={y}
+                      x2={svgWidth - chartPaddingRight}
+                      y2={y}
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeDasharray={idx === 0 ? 'none' : '3 3'}
+                    />
+                    <text
+                      x={chartPaddingLeft - 10}
+                      y={y + 4}
+                      textAnchor="end"
+                      fontSize="11"
+                      fill="#94a3b8"
+                      fontWeight="600"
+                    >
+                      {metricView === 'bookings' ? Math.round(val) : fmtShortMoney(val)}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Area Chart lines */}
+              {chartType === 'area' && (metricView === 'financial' || metricView === 'combined') && (
+                <>
+                  <polygon
+                    points={`${chartPaddingLeft + colWidth / 2},${chartPaddingTop + innerHeight} ${billedPoints.join(' ')} ${chartPaddingLeft + (count - 1) * colWidth + colWidth / 2},${chartPaddingTop + innerHeight}`}
+                    fill="url(#areaBrandGrad)"
+                  />
+                  <polyline
+                    points={billedPoints.join(' ')}
+                    fill="none"
+                    stroke="#f97316"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <polyline
+                    points={collectedPoints.join(' ')}
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </>
+              )}
+
+              {/* Columns / Bars & Interaction */}
+              {timeline.map((item, idx) => {
+                const colX = chartPaddingLeft + idx * colWidth;
+                const centerX = colX + colWidth / 2;
+                const isHovered = hoveredIndex === idx;
+
+                const billedHeight = Math.max(0, (item.billed_amount / maxFinancial) * innerHeight);
+                const collectedHeight = Math.max(0, (item.collected_amount / maxFinancial) * innerHeight);
+                const bookingsHeight = Math.max(0, (item.bookings_count / maxBookings) * innerHeight);
+                const completedHeight = Math.max(0, (item.completed_count / maxBookings) * innerHeight);
+                const groundY = chartPaddingTop + innerHeight;
+
+                return (
+                  <g
+                    key={idx}
+                    style={{ cursor: 'pointer' }}
+                    onMouseEnter={() => setHoveredIndex(idx)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                  >
+                    {/* Hover Column Background */}
+                    <rect
+                      x={colX}
+                      y={chartPaddingTop}
+                      width={colWidth}
+                      height={innerHeight}
+                      fill={isHovered ? 'rgba(168, 85, 247, 0.08)' : 'transparent'}
+                      rx="4"
+                    />
+
+                    {/* Bars rendering */}
+                    {chartType === 'bars' && (
+                      <>
+                        {(metricView === 'financial' || metricView === 'combined') && (
+                          <>
+                            <rect
+                              x={centerX - barWidth - 1}
+                              y={groundY - billedHeight}
+                              width={barWidth}
+                              height={Math.max(billedHeight, 2)}
+                              rx="4"
+                              fill="url(#brandBarGrad)"
+                              stroke={isHovered ? '#fff' : 'none'}
+                              strokeWidth="1"
+                            />
+                            <rect
+                              x={centerX + 1}
+                              y={groundY - collectedHeight}
+                              width={barWidth}
+                              height={Math.max(collectedHeight, 2)}
+                              rx="4"
+                              fill="url(#successBarGrad)"
+                              stroke={isHovered ? '#fff' : 'none'}
+                              strokeWidth="1"
+                            />
+                          </>
+                        )}
+
+                        {metricView === 'bookings' && (
+                          <>
+                            <rect
+                              x={centerX - barWidth - 1}
+                              y={groundY - bookingsHeight}
+                              width={barWidth}
+                              height={Math.max(bookingsHeight, 2)}
+                              rx="4"
+                              fill="url(#infoBarGrad)"
+                              stroke={isHovered ? '#fff' : 'none'}
+                              strokeWidth="1"
+                            />
+                            <rect
+                              x={centerX + 1}
+                              y={groundY - completedHeight}
+                              width={barWidth}
+                              height={Math.max(completedHeight, 2)}
+                              rx="4"
+                              fill="url(#purpleBarGrad)"
+                              stroke={isHovered ? '#fff' : 'none'}
+                              strokeWidth="1"
+                            />
+                          </>
+                        )}
+                      </>
+                    )}
+
+                    {/* Interactive Data Dots (for Line Chart) */}
+                    {chartType === 'area' && (
+                      <>
+                        <circle
+                          cx={centerX}
+                          cy={groundY - billedHeight}
+                          r={isHovered ? 6 : 3.5}
+                          fill="#f97316"
+                          stroke="#fff"
+                          strokeWidth="2"
+                        />
+                        <circle
+                          cx={centerX}
+                          cy={groundY - collectedHeight}
+                          r={isHovered ? 6 : 3.5}
+                          fill="#22c55e"
+                          stroke="#fff"
+                          strokeWidth="2"
+                        />
+                      </>
+                    )}
+
+                    {/* X-axis Label */}
+                    <text
+                      x={centerX}
+                      y={groundY + 18}
+                      textAnchor="middle"
+                      fontSize={period === 'monthly' && count > 20 ? '9' : '11'}
+                      fill={isHovered ? '#c084fc' : '#94a3b8'}
+                      fontWeight={isHovered ? '700' : '500'}
+                    >
+                      {period === 'monthly' ? item.day : item.label || item.date}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          );
+        })()}
+
+        {/* Hover Tooltip Overlay */}
+        {hoveredIndex !== null && timeline[hoveredIndex] && (() => {
+          const item = timeline[hoveredIndex];
+          const balance = Math.max(0, item.billed_amount - item.collected_amount);
+          const rate = item.billed_amount > 0 ? ((item.collected_amount / item.billed_amount) * 100).toFixed(1) : 100;
+
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '16px',
+                background: 'rgba(9, 14, 29, 0.96)',
+                border: '1px solid rgba(168, 85, 247, 0.4)',
+                borderRadius: '12px',
+                padding: '0.85rem 1.15rem',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                minWidth: '230px',
+                pointerEvents: 'none',
+                backdropFilter: 'blur(10px)',
+                zIndex: 20,
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', marginBottom: '0.45rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.4rem', color: '#f8fafc' }}>
+                {item.label || item.date} Summary
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.82rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Billed Revenue:</span>
+                  <strong style={{ color: 'var(--brand, #f97316)' }}>{fmtMoney(item.billed_amount)}</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Collected Paid:</span>
+                  <strong style={{ color: '#22c55e' }}>{fmtMoney(item.collected_amount)}</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Outstanding:</span>
+                  <strong style={{ color: balance > 0 ? '#f59e0b' : '#94a3b8' }}>{fmtMoney(balance)}</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '0.35rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Bookings (Events):</span>
+                  <strong style={{ color: '#ffffff' }}>{item.bookings_count} {item.completed_count > 0 && `(${item.completed_count} completed)`}</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                  <span style={{ color: '#94a3b8' }}>Collection Rate:</span>
+                  <strong style={{ color: parseFloat(rate) >= 90 ? '#22c55e' : '#f59e0b' }}>{rate}%</strong>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    )}
+  </div>
+
+  {/* ── STAFF BILLING & RECORD ATTRIBUTION SECTION ── */ }
+  <div
+    className="card p-6"
+    style={{
+      background: 'rgba(18, 27, 47, 0.75)',
+      border: '1px solid rgba(255, 255, 255, 0.12)',
+      borderRadius: '16px',
+    }}
+  >
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+      <div>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: '#f8fafc' }}>Staff Billing &amp; Payment Records</h3>
+        <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0.35rem 0 0' }}>
+          Staff-attributed totals for the selected period ({computedRangeLabel}).
+        </p>
+      </div>
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', fontSize: '0.78rem' }}>
+        <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#f97316' }} /> Billed
+        </span>
+        <span style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#22c55e' }} /> Payments recorded
+        </span>
+      </div>
+    </div>
+
+    {staffFinancials.length === 0 ? (
+      <div className="empty-state" style={{ padding: '1.5rem 1rem', textAlign: 'center', color: '#94a3b8' }}>
+        <div className="empty-title">No staff billing or payment records for this period</div>
+      </div>
+    ) : (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {staffFinancials.map((staff) => (
+          <div key={staff.staffId} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 0.8fr) minmax(140px, 1.2fr)', alignItems: 'center', gap: '0.75rem 1rem' }}>
+            <div>
+              <strong style={{ fontSize: '0.88rem', color: '#ffffff' }}>{staff.name}</strong>
+              <div style={{ color: '#94a3b8', fontSize: '0.74rem', marginTop: '0.2rem' }}>
+                {staff.bookingsCount} bookings · {staff.paymentsCount} payments
+              </div>
+            </div>
+            <div aria-label={`${staff.name} billing and payment graph`} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${(staff.billedAmount / maxStaffFinancial) * 100}%`, height: '100%', background: '#f97316', borderRadius: 4 }} />
+              </div>
+              <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${(staff.collectedAmount / maxStaffFinancial) * 100}%`, height: '100%', background: '#22c55e', borderRadius: 4 }} />
+              </div>
+            </div>
+            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.76rem' }}>
+              <span style={{ color: '#94a3b8' }}>Billed <strong style={{ display: 'block', color: 'var(--text-primary, #ffffff)' }}>{fmtMoney(staff.billedAmount)}</strong></span>
+              <span style={{ color: '#94a3b8' }}>Collected <strong style={{ display: 'block', color: '#22c55e' }}>{fmtMoney(staff.collectedAmount)}</strong></span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+    </div >
   );
 };
 
