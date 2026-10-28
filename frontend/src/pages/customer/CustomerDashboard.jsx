@@ -5,7 +5,7 @@ import Sidebar from '../../components/common/Sidebar';
 import ProfileSettings from '../../components/common/ProfileSettings';
 import {
   Calendar, Plus, UserCheck, Eye, EyeOff, Clock, MapPin, Users, DollarSign,
-  X, CheckCircle, AlertCircle, Search, ChevronLeft, ChevronRight
+  X, CheckCircle, AlertCircle, Search, ChevronLeft, ChevronRight, Sparkles
 } from 'lucide-react';
 
 const CustomerDashboard = () => {
@@ -182,13 +182,99 @@ const CustomerDashboard = () => {
     setSelectedItems(updated);
   };
 
+  // Helper to calculate pricing, extra persons, and food add-ons
+  const calculateBookingPricing = () => {
+    let itemsTotal = 0;
+    let primaryPackage = null;
+    let extraGuests = 0;
+    let extraRate = 250;
+    let extraGuestsCost = 0;
+
+    const breakdownItems = [];
+
+    selectedItems.forEach(item => {
+      if (!item.service_id) return;
+      const s = services.find(x => String(x.service_id) === String(item.service_id));
+      if (!s) return;
+      const qty = parseInt(item.quantity, 10) || 0;
+      const lineTotal = (parseFloat(s.base_price) || 0) * qty;
+      itemsTotal += lineTotal;
+
+      breakdownItems.push({
+        service_id: s.service_id,
+        service_name: s.service_name,
+        unit: s.unit,
+        base_price: parseFloat(s.base_price),
+        quantity: qty,
+        lineTotal,
+        description: s.description
+      });
+
+      if (!primaryPackage && s.unit === 'package' && (s.service_name.includes('Package') || s.service_name.includes('Catering'))) {
+        primaryPackage = s;
+      }
+    });
+
+    if (primaryPackage) {
+      let baseCapacity = 100;
+      const personMatch = (primaryPackage.description || '').match(/Person:\s*(\d+)/i);
+      if (personMatch) {
+        baseCapacity = parseInt(personMatch[1], 10);
+      } else if (primaryPackage.service_name.includes('Wedding')) {
+        baseCapacity = 150;
+      } else if (primaryPackage.service_name.includes('Birthday')) {
+        baseCapacity = 100;
+      } else if (primaryPackage.service_name.includes('Family')) {
+        baseCapacity = 120;
+      } else if (primaryPackage.service_name.includes('Baptismal')) {
+        baseCapacity = 80;
+      }
+
+      const rateMatch = (primaryPackage.description || '').match(/(?:Additional person\/food|Extra person):\s*₱?(\d+)/i);
+      if (rateMatch) {
+        extraRate = parseInt(rateMatch[1], 10);
+      } else if (primaryPackage.service_name.includes('Wedding')) {
+        extraRate = 350;
+      } else {
+        extraRate = 250;
+      }
+
+      const parsedGuestCount = parseInt(guestCount, 10) || 0;
+      if (parsedGuestCount > baseCapacity) {
+        extraGuests = parsedGuestCount - baseCapacity;
+        extraGuestsCost = extraGuests * extraRate;
+      }
+
+      primaryPackage = {
+        ...primaryPackage,
+        baseCapacity,
+        extraRate
+      };
+    }
+
+    const grandTotal = itemsTotal + extraGuestsCost;
+
+    return {
+      itemsTotal,
+      primaryPackage,
+      extraGuests,
+      extraRate,
+      extraGuestsCost,
+      grandTotal,
+      breakdownItems
+    };
+  };
+
   const handleCreateBooking = async (e) => {
     e.preventDefault();
     setBookingSubmitLoading(true);
     setBookingMessage('');
 
     try {
-      const validItems = selectedItems.filter(i => i.service_id && i.quantity > 0);
+      const validItems = selectedItems
+        .filter(i => i.service_id && parseInt(i.quantity, 10) > 0)
+        .map(i => ({ service_id: parseInt(i.service_id, 10), quantity: parseInt(i.quantity, 10) }));
+
       if (validItems.length === 0) {
         setBookingMessage('Please select at least one valid service or item.');
         setBookingSubmitLoading(false);
@@ -205,11 +291,31 @@ const CustomerDashboard = () => {
         return;
       }
 
+      const pricing = calculateBookingPricing();
+
+      // Automatically append extra guests item if guest count exceeds package capacity
+      if (pricing.extraGuests > 0) {
+        const extraPersonService = services.find(s =>
+          s.service_name.toLowerCase().includes('additional food') ||
+          (s.unit === 'per head' && s.service_name.toLowerCase().includes('person'))
+        );
+
+        if (extraPersonService) {
+          const alreadyHasExtra = validItems.some(i => i.service_id === extraPersonService.service_id);
+          if (!alreadyHasExtra) {
+            validItems.push({
+              service_id: extraPersonService.service_id,
+              quantity: pricing.extraGuests
+            });
+          }
+        }
+      }
+
       await api.post('/bookings', {
         event_type: eventType,
         event_date: eventDate,
         venue_address: computedVenue,
-        guest_count: parseInt(guestCount),
+        guest_count: parseInt(guestCount, 10) || 1,
         items: validItems
       });
 
@@ -217,6 +323,7 @@ const CustomerDashboard = () => {
       setShowBookingModal(false);
       setVenueOption('');
       setCustomVenue('');
+      setSelectedItems([{ service_id: '', quantity: 1 }]);
       fetchDashboardData();
     } catch (err) {
       setBookingMessage(err.response?.data?.message || 'Failed to create booking');
@@ -873,47 +980,177 @@ const CustomerDashboard = () => {
                   </div>
                 </div>
 
-                <div style={{ margin: '1.5rem 0' }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-                    Select Services, Packages & Rental Items
-                  </label>
-                  {selectedItems.map((item, idx) => (
-                    <div key={idx} style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'center' }}>
-                      <select
-                        className="form-select"
-                        style={{ flex: 3 }}
-                        value={item.service_id}
-                        onChange={(e) => handleItemChange(idx, 'service_id', e.target.value)}
-                        required
-                      >
-                        <option value="">-- Choose Service or Item --</option>
-                        {services.map(s => (
-                          <option key={s.service_id} value={s.service_id}>
-                            {s.service_name} (₱{parseFloat(s.base_price).toLocaleString()} /{s.unit})
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        className="form-input"
-                        style={{ flex: 1 }}
-                        placeholder="Qty"
-                        value={item.quantity}
-                        min="1"
-                        onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                        required
-                      />
-                      {selectedItems.length > 1 && (
-                        <button type="button" onClick={() => handleRemoveItemRow(idx)} className="btn btn-danger btn-sm btn-icon">
-                          <X size={16} />
-                        </button>
+                {/* Pricing & Inclusions Calculation */}
+                {(() => {
+                  const pricing = calculateBookingPricing();
+
+                  return (
+                    <>
+                      {/* Guest Count Extra Person Alert */}
+                      {pricing.extraGuests > 0 && (
+                        <div style={{
+                          margin: '0.75rem 0',
+                          padding: '0.75rem 1rem',
+                          background: 'rgba(249, 115, 22, 0.12)',
+                          border: '1px solid rgba(249, 115, 22, 0.35)',
+                          borderRadius: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.625rem',
+                          fontSize: '0.825rem',
+                          color: '#fed7aa'
+                        }}>
+                          <Sparkles size={18} style={{ color: 'var(--brand)', flexShrink: 0 }} />
+                          <div>
+                            <strong>Additional Guest Surcharge:</strong> {guestCount} guests exceeds package inclusion ({pricing.primaryPackage?.baseCapacity || 100} pax).
+                            <span style={{ color: '#fb923c', fontWeight: 700, marginLeft: '4px' }}>
+                              +{pricing.extraGuests} extra persons × ₱{pricing.extraRate} = +₱{pricing.extraGuestsCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </span> automatically added to payment.
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  ))}
-                  <button type="button" onClick={handleAddItemRow} className="btn btn-secondary btn-sm" style={{ marginTop: '0.5rem' }}>
-                    + Add Another Package / Item
-                  </button>
-                </div>
+
+                      <div style={{ margin: '1.5rem 0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                          <label className="form-label" style={{ fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                            Select Services, Packages &amp; Food Add-ons
+                          </label>
+                          <span style={{ fontSize: '0.75rem', color: '#fb923c', fontWeight: 600 }}>
+                            ⚡ Automatic price updates
+                          </span>
+                        </div>
+
+                        {selectedItems.map((item, idx) => {
+                          const matchedService = services.find(s => String(s.service_id) === String(item.service_id));
+                          const linePrice = matchedService ? (parseFloat(matchedService.base_price) * (parseInt(item.quantity, 10) || 1)) : 0;
+
+                          return (
+                            <div key={idx} style={{
+                              marginBottom: '0.875rem',
+                              padding: '0.75rem',
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: '10px'
+                            }}>
+                              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                <select
+                                  className="form-select"
+                                  style={{ flex: 3 }}
+                                  value={item.service_id}
+                                  onChange={(e) => handleItemChange(idx, 'service_id', e.target.value)}
+                                  required
+                                >
+                                  <option value="">-- Choose Service, Food Add-on or Rental --</option>
+                                  {services.map(s => (
+                                    <option key={s.service_id} value={s.service_id}>
+                                      {s.service_name} (₱{parseFloat(s.base_price).toLocaleString()} /{s.unit})
+                                    </option>
+                                  ))}
+                                </select>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flex: 1 }}>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Qty:</span>
+                                  <input
+                                    type="number"
+                                    className="form-input"
+                                    style={{ width: '100%' }}
+                                    placeholder="Qty"
+                                    value={item.quantity}
+                                    min="1"
+                                    onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                                    required
+                                  />
+                                </div>
+                                {selectedItems.length > 1 && (
+                                  <button type="button" onClick={() => handleRemoveItemRow(idx)} className="btn btn-danger btn-sm btn-icon">
+                                    <X size={16} />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Item Details & Inclusions Preview */}
+                              {matchedService && (
+                                <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', maxWidth: '75%' }}>
+                                    {matchedService.description.includes('|') ? (
+                                      <span style={{ color: '#cbd5e1' }}>
+                                        📦 <strong>Inclusions:</strong> {matchedService.description.replace(/^Inclusions:\s*/i, '').split('|').slice(0, 4).join(' • ')}
+                                      </span>
+                                    ) : (
+                                      <span>{matchedService.description}</span>
+                                    )}
+                                  </div>
+                                  <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--amber)' }}>
+                                    ₱{linePrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        <button type="button" onClick={handleAddItemRow} className="btn btn-secondary btn-sm" style={{ marginTop: '0.25rem' }}>
+                          + Add Another Package / Item
+                        </button>
+                      </div>
+
+                      {/* 💰 Automatic Payment Breakdown Box */}
+                      <div style={{
+                        background: 'rgba(13, 21, 38, 0.9)',
+                        border: '1.5px solid rgba(249, 115, 22, 0.4)',
+                        borderRadius: '12px',
+                        padding: '1.1rem 1.25rem',
+                        marginBottom: '1.5rem',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+                      }}>
+                        <div style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '0.6rem',
+                          marginBottom: '0.75rem'
+                        }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <DollarSign size={16} style={{ color: 'var(--brand)' }} />
+                            Automatic Payment Breakdown
+                          </div>
+                          <span style={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: 600, background: 'rgba(34,197,94,0.1)', padding: '2px 8px', borderRadius: 4 }}>
+                            Live Calculated Total
+                          </span>
+                        </div>
+
+                        {/* Breakdown Items */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.83rem', color: '#cbd5e1' }}>
+                          {pricing.breakdownItems.map((bi, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span>• {bi.service_name} (x{bi.quantity})</span>
+                              <span style={{ fontWeight: 600, color: '#f1f5f9' }}>₱{bi.lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          ))}
+
+                          {pricing.extraGuests > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#fb923c', fontWeight: 600 }}>
+                              <span>• Extra {pricing.extraGuests} Guests ({pricing.extraGuests} pax × ₱{pricing.extraRate})</span>
+                              <span>+₱{pricing.extraGuestsCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{
+                          marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                        }}>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Estimated Total Payment</div>
+                            <div style={{ fontSize: '0.75rem', color: '#fb923c' }}>
+                              ⚡ Extra foods &amp; guests automatically added
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--amber)' }}>
+                            ₱{pricing.grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <div className="modal-footer" style={{ padding: '1rem 0 0 0', borderTop: '1px solid var(--border)' }}>
                   <button type="button" onClick={() => setShowBookingModal(false)} className="btn btn-secondary">

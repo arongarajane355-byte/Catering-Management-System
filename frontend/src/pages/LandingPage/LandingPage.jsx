@@ -23,6 +23,49 @@ const categoryAccents = [
   { bg: 'var(--amber-dim)', color: 'var(--amber)' },
 ];
 
+const parseInclusions = (desc) => {
+  if (!desc) return null;
+  if (desc.includes('|')) {
+    const cleanDesc = desc.replace(/^Inclusions:\s*/i, '');
+    const parts = cleanDesc.split('|').map(p => p.trim());
+    const items = [];
+    let extraNote = '';
+    parts.forEach(part => {
+      if (part.includes('(') && part.includes(')')) {
+        const extraMatch = part.match(/\((.*?)\)/);
+        if (extraMatch) extraNote = extraMatch[1];
+        part = part.replace(/\(.*?\)/, '').trim();
+      }
+      const [key, ...val] = part.split(':');
+      if (val.length > 0) {
+        items.push({ label: key.trim(), value: val.join(':').trim() });
+      } else if (part) {
+        items.push({ label: 'Details', value: part });
+      }
+    });
+    return { items, extraNote, raw: desc };
+  }
+  return null;
+};
+
+const getInclusionIcon = (label) => {
+  const l = (label || '').toLowerCase();
+  if (l.includes('table')) return '🍽️';
+  if (l.includes('person') || l.includes('guest') || l.includes('capacity') || l.includes('staff') || l.includes('ratio')) return '👥';
+  if (l.includes('chair') || l.includes('seating')) return '🪑';
+  if (l.includes('design') || l.includes('motif') || l.includes('theme') || l.includes('accessories')) return '🎨';
+  if (l.includes('cake')) return '🎂';
+  if (l.includes('sweet') || l.includes('pastr') || l.includes('dessert') || l.includes('items') || l.includes('selection')) return '🧁';
+  if (l.includes('drink') || l.includes('beverage') || l.includes('juice') || l.includes('sauce')) return '🍹';
+  if (l.includes('lechon') || l.includes('dish') || l.includes('food') || l.includes('buffet') || l.includes('meal')) return '🍲';
+  if (l.includes('warmer') || l.includes('chafing') || l.includes('unit') || l.includes('pans') || l.includes('packaging')) return '🔥';
+  if (l.includes('utensil') || l.includes('flatware') || l.includes('cutlery') || l.includes('plate') || l.includes('dinnerware') || l.includes('glassware')) return '🍴';
+  if (l.includes('duration') || l.includes('time')) return '⏱️';
+  if (l.includes('fabric') || l.includes('cloth') || l.includes('fit')) return '🪡';
+  if (l.includes('tray') || l.includes('grip') || l.includes('use') || l.includes('structure')) return '📦';
+  return '✨';
+};
+
 // ---------- REGISTRATION MODAL ----------
 const RegistrationModal = ({ onClose }) => {
   const [customerNo] = useState(() => `CUST-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
@@ -474,14 +517,88 @@ const LandingPage = () => {
 
             {/* Modal Body Content */}
             <div style={{ padding: '1.5rem' }}>
-              <div style={{ marginBottom: '1.25rem' }}>
-                <div style={{ fontSize: '0.78rem', color: 'var(--brand)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
-                  Service &amp; Package Specifications
-                </div>
-                <p style={{ fontSize: '0.925rem', color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0 }}>
-                  {selectedServiceModal.service_description || 'Full-service catering package including fresh gourmet meal preparation, on-site setup, buffet serving warmers, tableware, utensils, and staff coordination.'}
-                </p>
-              </div>
+              {(() => {
+                const inc = parseInclusions(selectedServiceModal.service_description);
+                if (inc && inc.items.length > 0) {
+                  return (
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        marginBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.08)',
+                        paddingBottom: '0.5rem'
+                      }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--brand)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
+                          ✨ Package Inclusions &amp; Setup Details
+                        </div>
+                        {inc.extraNote && (
+                          <span style={{ fontSize: '0.75rem', background: 'rgba(249,115,22,0.15)', color: '#fb923c', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>
+                            {inc.extraNote}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Inclusions Grid */}
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                        gap: '0.75rem',
+                        marginBottom: '1rem'
+                      }}>
+                        {inc.items.map((item, idx) => (
+                          <div key={idx} style={{
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: 'var(--r-md)',
+                            padding: '0.75rem 0.875rem',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '0.625rem'
+                          }}>
+                            <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{getInclusionIcon(item.label)}</span>
+                            <div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+                                {item.label}
+                              </div>
+                              <div style={{ fontSize: '0.88rem', color: '#f1f5f9', fontWeight: 600, marginTop: '0.1rem', lineHeight: 1.35 }}>
+                                {item.value}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Automatic Pricing Notice */}
+                      <div style={{
+                        background: 'linear-gradient(90deg, rgba(249, 115, 22, 0.12) 0%, rgba(249, 115, 22, 0.05) 100%)',
+                        border: '1px solid rgba(249, 115, 22, 0.35)',
+                        borderRadius: 'var(--r-md)',
+                        padding: '0.75rem 1rem',
+                        fontSize: '0.825rem',
+                        color: '#fed7aa',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.625rem'
+                      }}>
+                        <Sparkles size={18} style={{ color: 'var(--brand)', flexShrink: 0 }} />
+                        <div>
+                          <strong>Automatic Additional Payment:</strong> Adding more foods or exceeding guest capacity automatically computes and reflects in your payment summary.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--brand)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
+                      Service &amp; Package Specifications
+                    </div>
+                    <p style={{ fontSize: '0.925rem', color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0 }}>
+                      {selectedServiceModal.service_description || 'Full-service catering package including fresh gourmet meal preparation, on-site setup, buffet serving warmers, tableware, utensils, and staff coordination.'}
+                    </p>
+                  </div>
+                );
+              })()}
 
               {/* Price Banner */}
               <div style={{
@@ -722,14 +839,47 @@ const LandingPage = () => {
 
                           {/* Card Content Body */}
                           <div className="service-card-content">
-                            {service.service_description && (
-                              <p style={{
-                                fontSize: '0.8rem', color: 'var(--text-muted)',
-                                lineHeight: 1.5, minHeight: 36, margin: 0
-                              }}>
-                                {service.service_description}
-                              </p>
-                            )}
+                            {(() => {
+                              const inc = parseInclusions(service.service_description);
+                              if (inc && inc.items.length > 0) {
+                                return (
+                                  <div style={{ minHeight: 70, marginBottom: '0.625rem' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.45rem' }}>
+                                      {inc.items.map((it, idx) => (
+                                        <span
+                                          key={idx}
+                                          style={{
+                                            fontSize: '0.72rem',
+                                            padding: '2px 7px',
+                                            borderRadius: '6px',
+                                            background: 'rgba(255, 255, 255, 0.05)',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            color: '#e2e8f0',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                          }}
+                                        >
+                                          <span>{getInclusionIcon(it.label)}</span>
+                                          <strong>{it.label}:</strong> {it.value}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <div style={{ fontSize: '0.71rem', color: '#fb923c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <Sparkles size={11} /> Extra guests / foods automatically added to payment
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return service.service_description ? (
+                                <p style={{
+                                  fontSize: '0.8rem', color: 'var(--text-muted)',
+                                  lineHeight: 1.5, minHeight: 48, margin: 0, marginBottom: '0.625rem'
+                                }}>
+                                  {service.service_description}
+                                </p>
+                              ) : null;
+                            })()}
 
                             <div className="service-card-footer">
                               <div>
